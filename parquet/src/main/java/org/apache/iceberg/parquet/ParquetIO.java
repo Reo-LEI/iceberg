@@ -63,7 +63,7 @@ class ParquetIO {
     if (file instanceof HadoopOutputFile) {
       HadoopOutputFile hfile = (HadoopOutputFile) file;
       try {
-        return org.apache.parquet.hadoop.util.HadoopOutputFile.fromPath(hfile.getPath(), hfile.getConf());
+        return org.apache.iceberg.parquet.hadoop.util.HadoopOutputFile.fromPath(hfile.getPath(), hfile.getConf());
       } catch (IOException e) {
         throw new RuntimeIOException(e, "Failed to create Parquet output file for %s", file);
       }
@@ -75,7 +75,7 @@ class ParquetIO {
     if (file instanceof HadoopOutputFile) {
       HadoopOutputFile hfile = (HadoopOutputFile) file;
       try {
-        return org.apache.parquet.hadoop.util.HadoopOutputFile.fromPath(hfile.getPath(), conf);
+        return org.apache.iceberg.parquet.hadoop.util.HadoopOutputFile.fromPath(hfile.getPath(), conf);
       } catch (IOException e) {
         throw new RuntimeIOException(e, "Failed to create Parquet output file for %s", file);
       }
