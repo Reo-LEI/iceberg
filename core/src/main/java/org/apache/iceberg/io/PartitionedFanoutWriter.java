@@ -20,13 +20,22 @@
 package org.apache.iceberg.io;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionKey;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.relocated.com.google.common.collect.Maps;
 
+
 public abstract class PartitionedFanoutWriter<T> extends BaseTaskWriter<T> {
+
+  private static final ExecutorService POOL = Executors.newCachedThreadPool();
   private final Map<PartitionKey, RollingFileWriter> writers = Maps.newHashMap();
 
   protected PartitionedFanoutWriter(PartitionSpec spec, FileFormat format, FileAppenderFactory<T> appenderFactory,
@@ -61,9 +70,32 @@ public abstract class PartitionedFanoutWriter<T> extends BaseTaskWriter<T> {
   @Override
   public void close() throws IOException {
     if (!writers.isEmpty()) {
+
+      List<CompletableFuture<Exception>> futures = new ArrayList<>(writers.size());
+
       for (PartitionKey key : writers.keySet()) {
-        writers.get(key).close();
+
+        CompletableFuture<Exception> closer = CompletableFuture.supplyAsync(() -> {
+          try {
+            writers.get(key).close();
+          } catch (IOException e) {
+            return e;
+          }
+          return null;
+        }, POOL);
+
+        futures.add(closer);
       }
+
+      try {
+        for (CompletableFuture<Exception> future : futures) {
+          Exception exception = future.get();
+          if (exception != null) {throw (IOException) exception;}
+        }
+      } catch (InterruptedException | ExecutionException e) {
+        throw new IOException(e);
+      }
+
       writers.clear();
     }
   }
