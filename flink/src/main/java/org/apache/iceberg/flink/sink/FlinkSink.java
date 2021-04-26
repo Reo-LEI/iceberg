@@ -123,6 +123,7 @@ public class FlinkSink {
     private boolean overwrite = false;
     private DistributionMode distributionMode = null;
     private Integer writeParallelism = null;
+    private String slotSharingGroup = null;
     private List<String> equalityFieldColumns = null;
 
     private Builder() {
@@ -194,6 +195,11 @@ public class FlinkSink {
       return this;
     }
 
+    public Builder slotSharingGroup(String sharingGroup) {
+      this.slotSharingGroup = sharingGroup;
+      return this;
+    }
+
     /**
      * Configuring the equality field columns for iceberg table that accept CDC or UPSERT events.
      *
@@ -244,15 +250,16 @@ public class FlinkSink {
       this.writeParallelism = writeParallelism == null ? rowDataInput.getParallelism() : writeParallelism;
 
       DataStream<Void> returnStream = rowDataInput
-          .transform(ICEBERG_STREAM_WRITER_NAME, TypeInformation.of(WriteResult.class), streamWriter)
-          .setParallelism(writeParallelism)
-          .transform(ICEBERG_FILES_COMMITTER_NAME, Types.VOID, filesCommitter)
-          .setParallelism(1)
-          .setMaxParallelism(1);
+              .transform(ICEBERG_STREAM_WRITER_NAME, TypeInformation.of(WriteResult.class), streamWriter)
+              .setParallelism(writeParallelism).slotSharingGroup(slotSharingGroup)
+              .transform(ICEBERG_FILES_COMMITTER_NAME, Types.VOID, filesCommitter)
+              .setParallelism(1).slotSharingGroup(slotSharingGroup)
+              .setMaxParallelism(1);
 
       return returnStream.addSink(new DiscardingSink())
-          .name(String.format("IcebergSink %s", table.name()))
-          .setParallelism(1);
+              .name(String.format("IcebergSink %s", table.name()))
+              .slotSharingGroup(slotSharingGroup)
+              .setParallelism(1);
     }
 
     private DataStream<RowData> distributeDataStream(DataStream<RowData> input,
