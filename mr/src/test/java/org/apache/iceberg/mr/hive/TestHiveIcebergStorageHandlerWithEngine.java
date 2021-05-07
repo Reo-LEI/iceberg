@@ -138,7 +138,7 @@ public class TestHiveIcebergStorageHandlerWithEngine {
   public TemporaryFolder temp = new TemporaryFolder();
 
   @Rule
-  public Timeout timeout = new Timeout(40000, TimeUnit.MILLISECONDS);
+  public Timeout timeout = new Timeout(200_000, TimeUnit.MILLISECONDS);
 
   @BeforeClass
   public static void beforeClass() {
@@ -249,7 +249,7 @@ public class TestHiveIcebergStorageHandlerWithEngine {
     Assert.assertArrayEquals(new Object[] {102L, 1L, 33.33d}, rows.get(2));
   }
 
-  @Test(timeout = 100000)
+  @Test
   public void testJoinTablesSupportedTypes() throws IOException {
     for (int i = 0; i < SUPPORTED_TYPES.size(); i++) {
       Type type = SUPPORTED_TYPES.get(i);
@@ -272,7 +272,7 @@ public class TestHiveIcebergStorageHandlerWithEngine {
     }
   }
 
-  @Test(timeout = 100000)
+  @Test
   public void testSelectDistinctFromTable() throws IOException {
     for (int i = 0; i < SUPPORTED_TYPES.size(); i++) {
       Type type = SUPPORTED_TYPES.get(i);
@@ -315,7 +315,7 @@ public class TestHiveIcebergStorageHandlerWithEngine {
     HiveIcebergTestUtils.validateData(table, HiveIcebergStorageHandlerTestUtils.CUSTOMER_RECORDS, 0);
   }
 
-  @Test(timeout = 100000)
+  @Test
   public void testInsertSupportedTypes() throws IOException {
     Assume.assumeTrue("Tez write is not implemented yet", executionEngine.equals("mr"));
     for (int i = 0; i < SUPPORTED_TYPES.size(); i++) {
@@ -659,9 +659,23 @@ public class TestHiveIcebergStorageHandlerWithEngine {
     Table target1 = testTables.createTable(shell, "target1", target1Schema, fileFormat, ImmutableList.of());
     Table target2 = testTables.createTable(shell, "target2", target2Schema, fileFormat, ImmutableList.of());
 
+    // simple insert: should create a single vertex writing to both target tables
     shell.executeStatement("FROM customers " +
-            "INSERT INTO target1 SELECT customer_id, first_name " +
-            "INSERT INTO target2 SELECT last_name, customer_id");
+        "INSERT INTO target1 SELECT customer_id, first_name " +
+        "INSERT INTO target2 SELECT last_name, customer_id");
+
+    // Check that everything is as expected
+    HiveIcebergTestUtils.validateData(target1, target1Records, 0);
+    HiveIcebergTestUtils.validateData(target2, target2Records, 1);
+
+    // truncate the target tables
+    testTables.truncateIcebergTable(target1);
+    testTables.truncateIcebergTable(target2);
+
+    // complex insert: should use a different vertex for each target table
+    shell.executeStatement("FROM customers " +
+        "INSERT INTO target1 SELECT customer_id, first_name ORDER BY first_name " +
+        "INSERT INTO target2 SELECT last_name, customer_id ORDER BY last_name");
 
     // Check that everything is as expected
     HiveIcebergTestUtils.validateData(target1, target1Records, 0);
@@ -689,6 +703,22 @@ public class TestHiveIcebergStorageHandlerWithEngine {
     Assert.assertEquals(1, results.size());
     Assert.assertEquals(10L, results.get(0)[0]);
     Assert.assertEquals("Linda", results.get(0)[1]);
+  }
+
+  @Test
+  public void testInsertEmptyResultSet() throws IOException {
+    Table source = testTables.createTable(shell, "source", HiveIcebergStorageHandlerTestUtils.CUSTOMER_SCHEMA,
+            fileFormat, ImmutableList.of());
+    Table target = testTables.createTable(shell, "target", HiveIcebergStorageHandlerTestUtils.CUSTOMER_SCHEMA,
+            fileFormat, ImmutableList.of());
+
+    shell.executeStatement("INSERT INTO target SELECT * FROM source");
+    HiveIcebergTestUtils.validateData(target, ImmutableList.of(), 0);
+
+    testTables.appendIcebergTable(shell.getHiveConf(), source, fileFormat, null,
+            HiveIcebergStorageHandlerTestUtils.CUSTOMER_RECORDS);
+    shell.executeStatement("INSERT INTO target SELECT * FROM source WHERE first_name = 'Nobody'");
+    HiveIcebergTestUtils.validateData(target, ImmutableList.of(), 0);
   }
 
   private void testComplexTypeWrite(Schema schema, List<Record> records) throws IOException {
