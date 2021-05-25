@@ -34,6 +34,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class Util {
+
+  public static final String VERSION_HINT_FILENAME = "version-hint.text";
+
   private static final Logger LOG = LoggerFactory.getLogger(Util.class);
   private static String defaultHadoopUserName = "Anonymous";
   private static String defaultUserToken = "token";
