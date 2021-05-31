@@ -18,7 +18,9 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileSystem;
@@ -38,29 +40,48 @@ public class Util {
   public static final String VERSION_HINT_FILENAME = "version-hint.text";
 
   private static final Logger LOG = LoggerFactory.getLogger(Util.class);
-  private static String defaultHadoopUserName = "Anonymous";
-  private static String defaultUserToken = "token";
-  private static String defaultHdfsAuthEnable = "false";
+  private static final Map<String, FileSystem> CACHE = new ConcurrentHashMap<>();
+
+  private static String HdfsAuthEnable = "false";
+  private static String HadoopUserName = "Anonymous";
+  private static String HadoopUserToken = "token";
+
 
   private Util() {
   }
 
-  public static void initDefaultAuthValue(String defaultUserName, String defaultToken, boolean defaultAuthEnable) {
-    defaultHadoopUserName = defaultUserName;
-    defaultUserToken = defaultToken;
-    defaultHdfsAuthEnable = Boolean.toString(defaultAuthEnable).toLowerCase();
+  public static void setAuthProps(boolean authEnable, String userName, String userToken) {
+    HdfsAuthEnable = Boolean.toString(authEnable).toLowerCase();
+    HadoopUserName = userName;
+    HadoopUserToken = userToken;
   }
 
   public static FileSystem getFs(Path path, Configuration conf) {
     try {
-      Boolean hdfsAuthEnable = Boolean.parseBoolean(conf.get("hdfs.auth.enable", defaultHdfsAuthEnable));
-      String hadoopUserName = conf.get("hadoop.user.name", defaultHadoopUserName);
-      String token = conf.get("hadoop.user.token", defaultUserToken);
-      LOG.info("HDFS AUTH CONFIG: {}-{}-{}-{}", hdfsAuthEnable, hadoopUserName, token, path.toUri());
-      if (hdfsAuthEnable) {
-        UserGroupInformation.createUserForTesting(hadoopUserName, new String[]{"supergroup"});
-        FileSystem fs = FileSystem.get(path.toUri(), conf, hadoopUserName + "@" + token);
-        LOG.info("FS Object: {} ", fs);
+      boolean needAuth = Boolean.parseBoolean(conf.get("hdfs.auth.enable", HdfsAuthEnable));
+      if (needAuth) {
+
+        String userName = conf.get(ConfigProperties.ICEBERG_PROXY_USER);
+        String userToken = conf.get(ConfigProperties.ICEBERG_PROXY_TOKEN);
+        if (userName == null || userToken == null) {
+          userName = conf.get("hadoop.user.name", HadoopUserName);
+          userToken = conf.get("hadoop.user.token", HadoopUserToken);
+        }
+
+        UserGroupInformation.createUserForTesting(userName, new String[]{"supergroup"});
+        String user = userName + "@" + userToken;
+        Path root = new Path(path.toUri().getScheme(), path.toUri().getAuthority(), "/");
+        String key = user + "@" + root;
+
+        if (CACHE.containsKey(key)) {
+            return CACHE.get(key);
+        }
+
+        FileSystem fs = FileSystem.get(root.toUri(), conf, user);
+
+        CACHE.putIfAbsent(key, fs);
+        LOG.info("Cache fs by key {}", key);
+
         return fs;
       } else {
         return path.getFileSystem(conf);

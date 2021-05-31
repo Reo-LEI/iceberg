@@ -25,4 +25,7 @@ public class ConfigProperties {
   }
 
   public static final String ENGINE_HIVE_ENABLED = "iceberg.engine.hive.enabled";
+
+  public static final String ICEBERG_PROXY_USER = "iceberg.proxy.user.name";
+  public static final String ICEBERG_PROXY_TOKEN = "iceberg.proxy.user.token";
 }
