@@ -57,24 +57,27 @@ public class Util {
   }
 
   public static FileSystem getFs(Path path, Configuration conf) {
+    boolean authEnable = Boolean.parseBoolean(conf.get(ConfigProperties.HDFS_AUTH_ENABLE, HdfsAuthEnable));
+    String userName = conf.get(ConfigProperties.HDFS_AUTH_USER, HadoopUserName);
+    String userToken = conf.get(ConfigProperties.HDFS_AUTH_TOKEN, HadoopUserToken);
+
+    String proxyUserName = conf.get(ConfigProperties.ICEBERG_PROXY_USER);
+    String proxyUserToken = conf.get(ConfigProperties.ICEBERG_PROXY_TOKEN);
+    if (proxyUserName != null && proxyUserToken != null) {
+      authEnable = true;  // enable hdfs user auth for proxy user
+      userName = proxyUserName;
+      userToken = proxyUserToken;
+    }
+
     try {
-      boolean needAuth = Boolean.parseBoolean(conf.get("hdfs.auth.enable", HdfsAuthEnable));
-      if (needAuth) {
-
-        String userName = conf.get(ConfigProperties.ICEBERG_PROXY_USER);
-        String userToken = conf.get(ConfigProperties.ICEBERG_PROXY_TOKEN);
-        if (userName == null || userToken == null) {
-          userName = conf.get("hadoop.user.name", HadoopUserName);
-          userToken = conf.get("hadoop.user.token", HadoopUserToken);
-        }
-
+      if (authEnable) {
         UserGroupInformation.createUserForTesting(userName, new String[]{"supergroup"});
         String user = userName + "@" + userToken;
         Path root = new Path(path.toUri().getScheme(), path.toUri().getAuthority(), "/");
         String key = user + "@" + root;
 
         if (CACHE.containsKey(key)) {
-            return CACHE.get(key);
+          return CACHE.get(key);
         }
 
         FileSystem fs = FileSystem.get(root.toUri(), conf, user);
