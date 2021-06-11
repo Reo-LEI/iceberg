@@ -51,7 +51,7 @@ class ParquetIO {
     if (file instanceof HadoopInputFile) {
       HadoopInputFile hfile = (HadoopInputFile) file;
       try {
-        return org.apache.parquet.hadoop.util.HadoopInputFile.fromStatus(hfile.getStat(), hfile.getConf());
+        return org.apache.iceberg.parquet.hadoop.util.HadoopInputFile.fromStatus(hfile.getStat(), hfile.getConf());
       } catch (IOException e) {
         throw new RuntimeIOException(e, "Failed to create Parquet input file for %s", file);
       }
