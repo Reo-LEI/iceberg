@@ -423,6 +423,11 @@ public class HiveCatalog extends BaseMetastoreCatalog implements SupportsNamespa
   public TableOperations newTableOps(TableIdentifier tableIdentifier) {
     String dbName = tableIdentifier.namespace().level(0);
     String tableName = tableIdentifier.name();
+
+    if (fileIO instanceof HadoopFileIO) {
+        // ensure each table opr use independent fileIO for proxy user enable
+        return new HiveTableOperations(conf, clients, new HadoopFileIO(conf), name, dbName, tableName);
+    }
     return new HiveTableOperations(conf, clients, fileIO, name, dbName, tableName);
   }
 
