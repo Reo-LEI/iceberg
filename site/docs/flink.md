@@ -406,7 +406,7 @@ This example will read all records from iceberg table and then print to the stdo
 
 ```java
 StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment();
-TableLoader tableLoader = TableLoader.fromHadooptable("hdfs://nn:8020/warehouse/path");
+TableLoader tableLoader = TableLoader.fromHadoopTable("hdfs://nn:8020/warehouse/path");
 DataStream<RowData> batch = FlinkSource.forRowData()
      .env(env)
      .tableLoader(tableLoader)
@@ -441,7 +441,7 @@ stream.print();
 env.execute("Test Iceberg Batch Read");
 ```
 
-There are other options that we could set by Java API, please see the [FlinkSource#Builder](./javadoc/master/org/apache/iceberg/flink/source/FlinkSource.html).
+There are other options that we could set by Java API, please see the [FlinkSource#Builder](./javadoc/0.11.1/org/apache/iceberg/flink/source/FlinkSource.html).
 
 ## Writing with DataStream
 
@@ -505,7 +505,7 @@ RewriteDataFilesActionResult result = Actions.forTable(table)
         .execute();
 ```
 
-For more doc about options of the rewrite files action, please see [RewriteDataFilesAction](./javadoc/master/org/apache/iceberg/flink/actions/RewriteDataFilesAction.html)
+For more doc about options of the rewrite files action, please see [RewriteDataFilesAction](./javadoc/0.11.1/org/apache/iceberg/flink/actions/RewriteDataFilesAction.html)
 
 ## Future improvement.
 
