@@ -21,6 +21,9 @@ package org.apache.iceberg.flink;
 
 import java.util.List;
 import java.util.Map;
+import org.apache.flink.configuration.ConfigOption;
+import org.apache.flink.configuration.ConfigOptions;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.api.constraints.UniqueConstraint;
 import org.apache.flink.table.connector.ChangelogMode;
@@ -34,20 +37,30 @@ import org.apache.iceberg.flink.sink.FlinkSink;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList;
 
 public class IcebergTableSink implements DynamicTableSink, SupportsPartitioning, SupportsOverwrite {
+
+  private static final ConfigOption<Boolean> UPSERT_MODE =
+          ConfigOptions.key("upsert-mode")
+                  .booleanType()
+                  .defaultValue(false)
+                  .withDescription("Iceberg table accepted stream mode, set true mean accept UPSERT stream, default is false.");
+
   private final TableLoader tableLoader;
   private final TableSchema tableSchema;
+  private final Map<String, String> tableProperties;
 
   private boolean overwrite = false;
 
   private IcebergTableSink(IcebergTableSink toCopy) {
     this.tableLoader = toCopy.tableLoader;
     this.tableSchema = toCopy.tableSchema;
+    this.tableProperties = toCopy.tableProperties;
     this.overwrite = toCopy.overwrite;
   }
 
-  public IcebergTableSink(TableLoader tableLoader, TableSchema tableSchema) {
+  public IcebergTableSink(TableLoader tableLoader, TableSchema tableSchema, Map<String, String> tableProperties) {
     this.tableLoader = tableLoader;
     this.tableSchema = tableSchema;
+    this.tableProperties = tableProperties;
   }
 
   @Override
@@ -59,10 +72,15 @@ public class IcebergTableSink implements DynamicTableSink, SupportsPartitioning,
         .map(UniqueConstraint::getColumns)
         .orElseGet(ImmutableList::of);
 
+
+    Configuration config = new Configuration();
+    tableProperties.forEach(config::setString);
+
     return (DataStreamSinkProvider) dataStream -> FlinkSink.forRowData(dataStream)
         .tableLoader(tableLoader)
         .tableSchema(tableSchema)
         .equalityFieldColumns(equalityColumns)
+        .upsert(config.getBoolean(UPSERT_MODE))
         .overwrite(overwrite)
         .build();
   }

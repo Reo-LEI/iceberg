@@ -105,7 +105,7 @@ public class FlinkDynamicTableFactory implements DynamicTableSinkFactory, Dynami
       tableLoader = createTableLoader(catalogTable, tableProps, objectPath.getObjectName());
     }
 
-    return new IcebergTableSink(tableLoader, tableSchema);
+    return new IcebergTableSink(tableLoader, tableSchema, tableProps);
   }
 
   @Override
