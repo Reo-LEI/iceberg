@@ -474,10 +474,6 @@ public class FlinkCatalog extends AbstractCatalog {
         throw new UnsupportedOperationException("Creating table with computed columns is not supported yet.");
       }
     });
-
-    if (!schema.getWatermarkSpecs().isEmpty()) {
-      throw new UnsupportedOperationException("Creating table with watermark specs is not supported yet.");
-    }
   }
 
   private static PartitionSpec toPartitionSpec(List<String> partitionKeys, Schema icebergSchema) {
