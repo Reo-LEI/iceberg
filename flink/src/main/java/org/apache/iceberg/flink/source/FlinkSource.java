@@ -76,6 +76,7 @@ public class FlinkSource {
     private TableSchema projectedSchema;
     private ReadableConfig readableConfig = new Configuration();
     private final ScanContext.Builder contextBuilder = ScanContext.builder();
+    private String uidPrefix;
 
     public Builder tableLoader(TableLoader newLoader) {
       this.tableLoader = newLoader;
@@ -166,6 +167,10 @@ public class FlinkSource {
       this.readableConfig = config;
       return this;
     }
+    public Builder uidPrefix(String newPrefix) {
+      this.uidPrefix = newPrefix;
+      return this;
+    }
 
     public FlinkInputFormat buildFormat() {
       Preconditions.checkNotNull(tableLoader, "TableLoader should not be null");
@@ -215,8 +220,8 @@ public class FlinkSource {
         String monitorFunctionName = String.format("Iceberg table (%s) monitor", table);
         String readerOperatorName = String.format("Iceberg table (%s) reader", table);
 
-        return env.addSource(function, monitorFunctionName)
-            .transform(readerOperatorName, typeInfo, StreamingReaderOperator.factory(format));
+        return env.addSource(function, monitorFunctionName).uid(uidPrefix != null ? uidPrefix + "-monitor" : null)
+            .transform(readerOperatorName, typeInfo, StreamingReaderOperator.factory(format)).uid(uidPrefix != null ? uidPrefix + "-reader" : null);
       }
     }
 
