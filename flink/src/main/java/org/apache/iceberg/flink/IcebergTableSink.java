@@ -38,17 +38,11 @@ import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList;
 
 public class IcebergTableSink implements DynamicTableSink, SupportsPartitioning, SupportsOverwrite {
 
-  private static final ConfigOption<Boolean> UPSERT_MODE =
-          ConfigOptions.key("upsert-mode")
-                  .booleanType()
-                  .defaultValue(false)
-                  .withDescription("Iceberg table accepted stream mode, set true mean accept UPSERT stream, default is false.");
-
   private static final ConfigOption<String> SNK_UID_PREFIX =
-          ConfigOptions.key("sink.uid.prefix")
-                  .stringType()
-                  .defaultValue(null)
-                  .withDescription("Iceberg sink operators uid prefix, default is null.");
+      ConfigOptions.key("sink.uid.prefix")
+          .stringType()
+          .defaultValue(null)
+          .withDescription("Iceberg sink operators uid prefix, default is null.");
 
   private final TableLoader tableLoader;
   private final TableSchema tableSchema;
@@ -71,12 +65,14 @@ public class IcebergTableSink implements DynamicTableSink, SupportsPartitioning,
 
   @Override
   public SinkRuntimeProvider getSinkRuntimeProvider(Context context) {
-    Preconditions.checkState(!overwrite || context.isBounded(),
+    Preconditions.checkState(
+        !overwrite || context.isBounded(),
         "Unbounded data stream doesn't support overwrite operation.");
 
     List<String> equalityColumns = tableSchema.getPrimaryKey()
         .map(UniqueConstraint::getColumns)
         .orElseGet(ImmutableList::of);
+    boolean updateMode = equalityColumns.size() > 0;
 
     Configuration config = new Configuration();
     tableProperties.forEach(config::setString);
@@ -85,7 +81,7 @@ public class IcebergTableSink implements DynamicTableSink, SupportsPartitioning,
         .tableLoader(tableLoader)
         .tableSchema(tableSchema)
         .equalityFieldColumns(equalityColumns)
-        .upsert(config.getBoolean(UPSERT_MODE))
+        .upsert(updateMode)
         .uidPrefix(config.getString(SNK_UID_PREFIX))
         .overwrite(overwrite)
         .build();
