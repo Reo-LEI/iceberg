@@ -117,6 +117,19 @@ subprojects {
         def releasesRepoUrl = project.hasProperty('mavenReleasesRepo') ? "$mavenReleasesRepo" : "$apacheReleasesRepoUrl"
         url = project.hasProperty('release') ? releasesRepoUrl : snapshotsRepoUrl
       }
+
+      mavenLocal {
+        credentials {
+          username project.hasProperty('mavenUser') ? "$mavenUser" : ""
+          password project.hasProperty('mavenPassword') ? "$mavenPassword" : ""
+        }
+        // upload to the releases repository using ./gradlew -Prelease publish
+        def apacheSnapshotsRepoUrl = 'https://nexus.huya.com/repository/snapshots/'
+        def apacheReleasesRepoUrl = 'https://nexus.huya.com/repository/releases/'
+        def snapshotsRepoUrl = project.hasProperty('mavenSnapshotsRepo') ? "$mavenSnapshotsRepo" : "$apacheSnapshotsRepoUrl"
+        def releasesRepoUrl = project.hasProperty('mavenReleasesRepo') ? "$mavenReleasesRepo" : "$apacheReleasesRepoUrl"
+        url = project.hasProperty('release') ? releasesRepoUrl : snapshotsRepoUrl
+      }
     }
   }
 
