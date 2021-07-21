@@ -17,14 +17,10 @@
  * under the License.
  */
 
-package org.apache.iceberg.actions;
+package org.apache.iceberg.spark.source;
 
-import org.apache.iceberg.spark.actions.SparkActions;
-
-public class TestRemoveReachableFilesAction24 extends TestRemoveReachableFilesAction {
-
-  @Override
-  ActionsProvider sparkActions() {
-    return SparkActions.get();
+public class TestTimestampWithoutZone3 extends TestTimestampWithoutZone {
+  public TestTimestampWithoutZone3(String format, boolean vectorized) {
+    super(format, vectorized);
   }
 }

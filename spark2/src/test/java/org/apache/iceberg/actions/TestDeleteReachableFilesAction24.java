@@ -19,16 +19,12 @@
 
 package org.apache.iceberg.actions;
 
-public class BaseRemoveOrphanFilesActionResult implements RemoveOrphanFiles.Result {
+import org.apache.iceberg.spark.actions.SparkActions;
 
-  private final Iterable<String> orphanFileLocations;
-
-  public BaseRemoveOrphanFilesActionResult(Iterable<String> orphanFileLocations) {
-    this.orphanFileLocations = orphanFileLocations;
-  }
+public class TestDeleteReachableFilesAction24 extends TestDeleteReachableFilesAction {
 
   @Override
-  public Iterable<String> orphanFileLocations() {
-    return orphanFileLocations;
+  ActionsProvider sparkActions() {
+    return SparkActions.get();
   }
 }

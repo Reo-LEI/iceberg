@@ -27,6 +27,7 @@ import java.io.OutputStreamWriter;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Locale;
 import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.DataOperations;
 import org.apache.iceberg.FileScanTask;
@@ -52,6 +53,8 @@ import org.apache.iceberg.spark.source.SparkBatchScan.ReaderFactory;
 import org.apache.iceberg.util.PropertyUtil;
 import org.apache.iceberg.util.SnapshotUtil;
 import org.apache.iceberg.util.TableScanUtil;
+import org.apache.iceberg.util.Tasks;
+import org.apache.iceberg.util.ThreadPools;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.sql.connector.read.InputPartition;
@@ -59,6 +62,8 @@ import org.apache.spark.sql.connector.read.PartitionReaderFactory;
 import org.apache.spark.sql.connector.read.streaming.MicroBatchStream;
 import org.apache.spark.sql.connector.read.streaming.Offset;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.apache.iceberg.TableProperties.SPLIT_LOOKBACK;
 import static org.apache.iceberg.TableProperties.SPLIT_LOOKBACK_DEFAULT;
@@ -69,6 +74,7 @@ import static org.apache.iceberg.TableProperties.SPLIT_SIZE_DEFAULT;
 
 public class SparkMicroBatchStream implements MicroBatchStream {
   private static final Joiner SLASH = Joiner.on("/");
+  private static final Logger LOG = LoggerFactory.getLogger(SparkMicroBatchStream.class);
 
   private final Table table;
   private final boolean caseSensitive;
@@ -79,6 +85,7 @@ public class SparkMicroBatchStream implements MicroBatchStream {
   private final Long splitOpenFileCost;
   private final boolean localityPreferred;
   private final StreamingOffset initialOffset;
+  private final boolean skipDelete;
 
   SparkMicroBatchStream(JavaSparkContext sparkContext, Table table, boolean caseSensitive,
                         Schema expectedSchema, CaseInsensitiveStringMap options, String checkpointLocation) {
@@ -101,6 +108,8 @@ public class SparkMicroBatchStream implements MicroBatchStream {
 
     InitialOffsetStore initialOffsetStore = new InitialOffsetStore(table, checkpointLocation);
     this.initialOffset = initialOffsetStore.initialOffset();
+
+    this.skipDelete = Spark3Util.propertyAsBoolean(options, SparkReadOptions.STREAMING_SKIP_DELETE_SNAPSHOTS, false);
   }
 
   @Override
@@ -136,11 +145,12 @@ public class SparkMicroBatchStream implements MicroBatchStream {
         TableScanUtil.planTasks(splitTasks, splitSize, splitLookback, splitOpenFileCost));
     InputPartition[] readTasks = new InputPartition[combinedScanTasks.size()];
 
-    for (int i = 0; i < combinedScanTasks.size(); i++) {
-      readTasks[i] = new ReadTask(
-          combinedScanTasks.get(i), tableBroadcast, expectedSchema,
-          caseSensitive, localityPreferred);
-    }
+    Tasks.range(readTasks.length)
+        .stopOnFailure()
+        .executeWith(localityPreferred ? ThreadPools.getWorkerPool() : null)
+        .run(index -> readTasks[index] = new ReadTask(
+            combinedScanTasks.get(index), tableBroadcast, expectedSchema,
+            caseSensitive, localityPreferred));
 
     return readTasks;
   }
@@ -170,35 +180,44 @@ public class SparkMicroBatchStream implements MicroBatchStream {
 
   private List<FileScanTask> planFiles(StreamingOffset startOffset, StreamingOffset endOffset) {
     List<FileScanTask> fileScanTasks = Lists.newArrayList();
-    MicroBatch latestMicroBatch = null;
     StreamingOffset batchStartOffset = StreamingOffset.START_OFFSET.equals(startOffset) ?
         new StreamingOffset(SnapshotUtil.oldestSnapshot(table).snapshotId(), 0, false) :
         startOffset;
 
-    do {
-      StreamingOffset currentOffset =
-          latestMicroBatch != null && latestMicroBatch.lastIndexOfSnapshot() ?
-              new StreamingOffset(snapshotAfter(latestMicroBatch.snapshotId()), 0L, false) :
-              batchStartOffset;
+    StreamingOffset currentOffset = null;
 
-      latestMicroBatch = MicroBatches.from(table.snapshot(currentOffset.snapshotId()), table.io())
+    do {
+      if (currentOffset == null) {
+        currentOffset = batchStartOffset;
+      } else {
+        Snapshot snapshotAfter = SnapshotUtil.snapshotAfter(table, currentOffset.snapshotId());
+        currentOffset = new StreamingOffset(snapshotAfter.snapshotId(), 0L, false);
+      }
+
+      if (!shouldProcess(table.snapshot(currentOffset.snapshotId()))) {
+        LOG.debug("Skipping snapshot: {} of table {}", currentOffset.snapshotId(), table.name());
+        continue;
+      }
+
+      MicroBatch latestMicroBatch = MicroBatches.from(table.snapshot(currentOffset.snapshotId()), table.io())
           .caseSensitive(caseSensitive)
           .specsById(table.specs())
           .generate(currentOffset.position(), Long.MAX_VALUE, currentOffset.shouldScanAllFiles());
 
       fileScanTasks.addAll(latestMicroBatch.tasks());
-    } while (latestMicroBatch.snapshotId() != endOffset.snapshotId());
+    } while (currentOffset.snapshotId() != endOffset.snapshotId());
 
     return fileScanTasks;
   }
 
-  private long snapshotAfter(long snapshotId) {
-    Snapshot snapshotAfter = SnapshotUtil.snapshotAfter(table, snapshotId);
-
-    Preconditions.checkState(snapshotAfter.operation().equals(DataOperations.APPEND),
-            "Invalid Snapshot operation: %s, only APPEND is allowed.", snapshotAfter.operation());
-
-    return snapshotAfter.snapshotId();
+  private boolean shouldProcess(Snapshot snapshot) {
+    String op = snapshot.operation();
+    Preconditions.checkState(!op.equals(DataOperations.DELETE) || skipDelete,
+        "Cannot process delete snapshot: %s", snapshot.snapshotId());
+    Preconditions.checkState(
+        op.equals(DataOperations.DELETE) || op.equals(DataOperations.APPEND) || op.equals(DataOperations.REPLACE),
+        "Cannot process %s snapshot: %s", op.toLowerCase(Locale.ROOT), snapshot.snapshotId());
+    return op.equals(DataOperations.APPEND);
   }
 
   private static class InitialOffsetStore {

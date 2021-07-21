@@ -17,12 +17,10 @@
  * under the License.
  */
 
-package org.apache.iceberg.actions;
+package org.apache.iceberg.spark.source;
 
-/**
- * @deprecated since 0.12.0, will be removed in 0.13.0; use {@link SnapshotTable} instead.
- */
-@Deprecated
-public interface SnapshotAction extends CreateAction {
-  SnapshotAction withLocation(String location);
+public class TestTimestampWithoutZone24 extends TestTimestampWithoutZone {
+  public TestTimestampWithoutZone24(String format, boolean vectorized) {
+    super(format, vectorized);
+  }
 }
