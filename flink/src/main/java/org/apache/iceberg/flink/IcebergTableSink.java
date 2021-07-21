@@ -72,7 +72,8 @@ public class IcebergTableSink implements DynamicTableSink, SupportsPartitioning,
     List<String> equalityColumns = tableSchema.getPrimaryKey()
         .map(UniqueConstraint::getColumns)
         .orElseGet(ImmutableList::of);
-    boolean updateMode = equalityColumns.size() > 0;
+
+    boolean upsert = equalityColumns.size() > 0;
 
     Configuration config = new Configuration();
     tableProperties.forEach(config::setString);
@@ -81,7 +82,7 @@ public class IcebergTableSink implements DynamicTableSink, SupportsPartitioning,
         .tableLoader(tableLoader)
         .tableSchema(tableSchema)
         .equalityFieldColumns(equalityColumns)
-        .upsert(updateMode)
+        .upsert(upsert)
         .uidPrefix(config.getString(SNK_UID_PREFIX))
         .overwrite(overwrite)
         .build();
