@@ -21,10 +21,12 @@ package org.apache.iceberg.flink.data;
 
 import java.util.Iterator;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.types.logical.RowType;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.data.RandomGenericData;
 import org.apache.iceberg.data.Record;
+import org.apache.iceberg.flink.FlinkSchemaUtil;
 import org.apache.iceberg.flink.TestHelpers;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.StructProjection;

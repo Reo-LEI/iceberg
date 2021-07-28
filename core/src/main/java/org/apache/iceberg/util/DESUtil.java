@@ -108,7 +108,7 @@ public class DESUtil {
 
 
     public static void main(String[] args) {
-        System.out.println(encrypt("hadoop"));
+        System.out.println(encrypt("hive"));
 
 
     }
