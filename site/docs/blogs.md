@@ -19,10 +19,20 @@
 
 Here is a list of company blogs that talk about Iceberg. The blogs are ordered from most recent to oldest.
 
+### [Apache Iceberg: An Architectural Look Under the Covers](https://www.dremio.com/apache-iceberg-an-architectural-look-under-the-covers/)
+**Date**: July 6th, 2021, **Company**: Dremio
+
+**Author**: [Jason Hughes](https://www.linkedin.com/in/jasonhhughes/)
+
 ### [Migrating to Apache Iceberg at Adobe Experience Platform](https://medium.com/adobetech/migrating-to-apache-iceberg-at-adobe-experience-platform-40fa80f8b8de)
 **Date**: Jun 17th, 2021, **Company**: Adobe
 
 **Author**: [Romin Parekh](https://www.linkedin.com/in/rominparekh/), [Miao Wang](https://www.linkedin.com/in/miao-wang-0406a74/), [Shone Sadler](https://www.linkedin.com/in/shonesadler/)
+
+### [Flink + Iceberg: How to Construct a Whole-scenario Real-time Data Warehouse](https://www.alibabacloud.com/blog/flink-%2B-iceberg-how-to-construct-a-whole-scenario-real-time-data-warehouse_597824)
+**Date**: Jun 8th, 2021, **Company**: Tencent
+
+**Author** [Shu (Simon Su) Su](https://www.linkedin.com/in/shu-su-62944994/)
 
 ### [A Short Introduction to Apache Iceberg](https://medium.com/expedia-group-tech/a-short-introduction-to-apache-iceberg-d34f628b6799)
 **Date**: Jan 26th, 2021, **Company**: Expedia
