@@ -43,7 +43,7 @@ public class Util {
   private static final Logger LOG = LoggerFactory.getLogger(Util.class);
   private static final Map<String, FileSystem> CACHE = new ConcurrentHashMap<>();
 
-  private static String HdfsAuthEnable = "false";
+  private static String HdfsAuthEnable = "true";  // enable hdfs user auth by default
   private static String HadoopUserName = "Anonymous";
 
 
