@@ -394,8 +394,9 @@ public class TestFlinkIcebergSinkV2 extends TableTestBase {
             row("+I", 2, "ccc")
         ),
         ImmutableList.of(
-            row("-U", 1, "aaa"),
-            row("+U", 1, "bbb")
+            row("+U", 1, "bbb"),
+            row("-U", 1, "ccc"),
+            row("-D", 1, "aaa")
         )
     );
 

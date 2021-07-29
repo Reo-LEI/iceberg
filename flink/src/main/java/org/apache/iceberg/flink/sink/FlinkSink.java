@@ -285,14 +285,14 @@ public class FlinkSink {
       // Distribute the records from input data stream based on the write.distribution-mode.
       rowDataInput = distributeDataStream(rowDataInput, table.properties(), table.spec(), table.schema(), flinkRowType);
 
-      // Convert the INSERT stream to be an UPSERT stream if needed.
+      // Validate the equality fields and partition fields if we enable the upsert stream.
       if (upsert) {
         Preconditions.checkState(!equalityFieldIds.isEmpty(),
                 "Equality field columns shouldn't be empty when configuring to use UPSERT data stream.");
         if (!table.spec().isUnpartitioned()) {
           for (PartitionField partitionField : table.spec().fields()) {
             Preconditions.checkState(equalityFieldIds.contains(partitionField.sourceId()),
-                    "Partition field '%s' is not included in equality fields: '%s'", partitionField, equalityFieldColumns);
+                "Partition field '%s' is not included in equality fields: '%s'", partitionField, equalityFieldColumns);
           }
         }
       }
@@ -390,6 +390,7 @@ public class FlinkSink {
                                                          RowType flinkRowType,
                                                          List<Integer> equalityFieldIds,
                                                          boolean upsert) {
+    Preconditions.checkArgument(table != null, "Iceberg table should't be null");
     Map<String, String> props = table.properties();
     long targetFileSize = getTargetFileSizeBytes(props);
     FileFormat fileFormat = getFileFormat(props);

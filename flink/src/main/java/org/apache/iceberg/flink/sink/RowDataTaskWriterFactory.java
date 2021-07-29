@@ -49,8 +49,8 @@ public class RowDataTaskWriterFactory implements TaskWriterFactory<RowData> {
   private final long targetFileSizeBytes;
   private final FileFormat format;
   private final List<Integer> equalityFieldIds;
-  private final FileAppenderFactory<RowData> appenderFactory;
   private final boolean upsert;
+  private final FileAppenderFactory<RowData> appenderFactory;
 
   private transient OutputFileFactory outputFileFactory;
 

@@ -199,4 +199,8 @@ public class TableProperties {
 
   public static final String FORMAT_VERSION = "format.version";
   public static final int DEFAULT_FORMAT_VERSION = 1;
+
+  public static final String UPSERT_MODE_ENABLED = "write.upsert.enable";
+  public static final boolean UPSERT_MODE_ENABLED_DEFAULT = false;
+
 }

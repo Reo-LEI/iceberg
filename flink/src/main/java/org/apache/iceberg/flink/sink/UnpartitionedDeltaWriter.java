@@ -43,7 +43,8 @@ class UnpartitionedDeltaWriter extends BaseDeltaTaskWriter {
                            RowType flinkSchema,
                            List<Integer> equalityFieldIds,
                            boolean upsert) {
-    super(spec, format, appenderFactory, fileFactory, io, targetFileSize, schema, flinkSchema, equalityFieldIds, upsert);
+    super(spec, format, appenderFactory, fileFactory, io, targetFileSize, schema, flinkSchema, equalityFieldIds,
+        upsert);
     this.writer = new RowDataDeltaWriter(null);
   }
 
