@@ -21,6 +21,7 @@ package org.apache.iceberg.flink;
 
 import java.util.List;
 import java.util.Map;
+import org.apache.flink.api.dag.Transformation;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.Configuration;
@@ -80,14 +81,24 @@ public class IcebergTableSink implements DynamicTableSink, SupportsPartitioning,
     Configuration config = new Configuration();
     tableProperties.forEach(config::setString);
 
-    return (DataStreamSinkProvider) dataStream -> FlinkSink.forRowData(dataStream)
-        .tableLoader(tableLoader)
-        .tableSchema(tableSchema)
-        .equalityFieldColumns(equalityColumns)
-        .upsert(PropertyUtil.propertyAsBoolean(tableProperties, UPSERT_MODE_ENABLED, UPSERT_MODE_ENABLED_DEFAULT))
-        .uidPrefix(config.getString(SNK_UID_PREFIX))
-        .overwrite(overwrite)
-        .build();
+    return (DataStreamSinkProvider) dataStream ->  {
+      // For CDC case in FlinkSQL, change log will be rebalanced(default partition strategy) distributed to Filter opr
+      // when set job default parallelism greater than 1. That will make change log lost order and produce a wrong
+      // result for iceberg(e.g. +U comes before -U). Here try to specific the Filter opr parallelism same as it's
+      // input to keep Filter chaining it's input and avoid rebalance.
+      Transformation<?> forwardOpr = dataStream.getTransformation();
+      if (forwardOpr.getName().equals("Filter") && forwardOpr.getInputs().size() == 1) {
+        forwardOpr.setParallelism(forwardOpr.getInputs().get(0).getParallelism());
+      }
+      return FlinkSink.forRowData(dataStream)
+          .tableLoader(tableLoader)
+          .tableSchema(tableSchema)
+          .equalityFieldColumns(equalityColumns)
+          .upsert(PropertyUtil.propertyAsBoolean(tableProperties, UPSERT_MODE_ENABLED, UPSERT_MODE_ENABLED_DEFAULT))
+          .uidPrefix(config.getString(SNK_UID_PREFIX))
+          .overwrite(overwrite)
+          .build();
+    };
   }
 
   @Override

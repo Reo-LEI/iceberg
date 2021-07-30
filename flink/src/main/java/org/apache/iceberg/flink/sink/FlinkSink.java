@@ -27,6 +27,7 @@ import java.util.Map;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeinfo.Types;
+import org.apache.flink.api.dag.Transformation;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
@@ -279,22 +280,29 @@ public class FlinkSink {
         }
       }
 
+      // Validate the partition fields if equality fields are not empty.
+      if (!equalityFieldIds.isEmpty() && !table.spec().isUnpartitioned()) {
+        for (PartitionField partitionField : table.spec().fields()) {
+          Preconditions.checkState(equalityFieldIds.contains(partitionField.sourceId()),
+              "Partition field '%s' is not included in equality fields: '%s'", partitionField, equalityFieldColumns);
+        }
+      }
+
+      // Validate the equality fields if we enable the upsert stream.
+      if (upsert) {
+        Preconditions.checkState(!equalityFieldIds.isEmpty(),
+            "Equality field columns shouldn't be empty when configuring to use UPSERT data stream.");
+      }
+
       // Convert the requested flink table schema to flink row type.
       RowType flinkRowType = toFlinkRowType(table.schema(), tableSchema);
 
-      // Distribute the records from input data stream based on the write.distribution-mode.
-      rowDataInput = distributeDataStream(rowDataInput, table.properties(), table.spec(), table.schema(), flinkRowType);
-
-      // Validate the equality fields and partition fields if we enable the upsert stream.
-      if (upsert) {
-        Preconditions.checkState(!equalityFieldIds.isEmpty(),
-                "Equality field columns shouldn't be empty when configuring to use UPSERT data stream.");
-        if (!table.spec().isUnpartitioned()) {
-          for (PartitionField partitionField : table.spec().fields()) {
-            Preconditions.checkState(equalityFieldIds.contains(partitionField.sourceId()),
-                "Partition field '%s' is not included in equality fields: '%s'", partitionField, equalityFieldColumns);
-          }
-        }
+      // Distribute the records from input data stream by equality fields or fallback to write.distribution-mode.
+      if (!equalityFieldIds.isEmpty()) {
+        rowDataInput = rowDataInput.keyBy(new EqualityFieldKeySelector(equalityFieldIds, table.schema(), flinkRowType));
+      } else {
+        rowDataInput = distributeDataStream(rowDataInput, table.properties(), table.spec(), table.schema(),
+            flinkRowType);
       }
 
       // Chain the iceberg stream writer and committer operator.
