@@ -86,7 +86,9 @@ public class FlinkSink {
   public static <T> Builder builderFor(DataStream<T> input,
                                        MapFunction<T, RowData> mapper,
                                        TypeInformation<RowData> outputType) {
-    DataStream<RowData> dataStream = input.map(mapper, outputType);
+    // Input stream order is crucial for some situation(e.g. in cdc case), So we neet to set the map opr parallelism as
+    // it's input to keep map opr chain to input, and ensure input stream will not be rebalanced.
+    DataStream<RowData> dataStream = input.map(mapper, outputType).setParallelism(input.getParallelism());
     return forRowData(dataStream);
   }
 
@@ -297,13 +299,9 @@ public class FlinkSink {
       // Convert the requested flink table schema to flink row type.
       RowType flinkRowType = toFlinkRowType(table.schema(), tableSchema);
 
-      // Distribute the records from input data stream by equality fields or fallback to write.distribution-mode.
-      if (!equalityFieldIds.isEmpty()) {
-        rowDataInput = rowDataInput.keyBy(new EqualityFieldKeySelector(equalityFieldIds, table.schema(), flinkRowType));
-      } else {
-        rowDataInput = distributeDataStream(rowDataInput, table.properties(), table.spec(), table.schema(),
-            flinkRowType);
-      }
+      // Distribute the records from input data stream based on the write.distribution-mode and equality fields.
+      rowDataInput = distributeDataStream(rowDataInput, table.properties(), equalityFieldIds, table.spec(),
+          table.schema(), flinkRowType);
 
       // Chain the iceberg stream writer and committer operator.
       IcebergStreamWriter<RowData> streamWriter = createStreamWriter(table, flinkRowType, equalityFieldIds, upsert);
@@ -343,6 +341,7 @@ public class FlinkSink {
 
     private DataStream<RowData> distributeDataStream(DataStream<RowData> input,
                                                      Map<String, String> properties,
+                                                     List<Integer> equalityFieldIds,
                                                      PartitionSpec partitionSpec,
                                                      Schema iSchema,
                                                      RowType flinkRowType) {
@@ -360,13 +359,21 @@ public class FlinkSink {
 
       switch (writeMode) {
         case NONE:
-          return input;
+          if (!equalityFieldIds.isEmpty()) {
+            return input.keyBy(new EqualityFieldKeySelector(equalityFieldIds, table.schema(), flinkRowType));
+          } else {
+            return input;
+          }
 
         case HASH:
-          if (partitionSpec.isUnpartitioned()) {
-            return input;
-          } else {
+          if (!partitionSpec.isUnpartitioned() && !equalityFieldIds.isEmpty()) {
+            return input.keyBy(new HybridKeySelector(partitionSpec, equalityFieldIds, iSchema, flinkRowType));
+          } else if (!partitionSpec.isUnpartitioned() && equalityFieldIds.isEmpty()) {
             return input.keyBy(new PartitionKeySelector(partitionSpec, iSchema, flinkRowType));
+          } else if (partitionSpec.isUnpartitioned() && !equalityFieldIds.isEmpty()) {
+            return input.keyBy(new EqualityFieldKeySelector(equalityFieldIds, table.schema(), flinkRowType));
+          } else {
+            return input;
           }
 
         case RANGE:
