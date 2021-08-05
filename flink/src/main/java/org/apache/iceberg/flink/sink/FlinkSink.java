@@ -27,7 +27,6 @@ import java.util.Map;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeinfo.Types;
-import org.apache.flink.api.dag.Transformation;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
@@ -86,7 +85,7 @@ public class FlinkSink {
   public static <T> Builder builderFor(DataStream<T> input,
                                        MapFunction<T, RowData> mapper,
                                        TypeInformation<RowData> outputType) {
-    // Input stream order is crucial for some situation(e.g. in cdc case), So we neet to set the map opr parallelism as
+    // Input stream order is crucial for some situation(e.g. in cdc case), So we need to set the map opr parallelism as
     // it's input to keep map opr chain to input, and ensure input stream will not be rebalanced.
     DataStream<RowData> dataStream = input.map(mapper, outputType).setParallelism(input.getParallelism());
     return forRowData(dataStream);
@@ -282,18 +281,16 @@ public class FlinkSink {
         }
       }
 
-      // Validate the partition fields if equality fields are not empty.
-      if (!equalityFieldIds.isEmpty() && !table.spec().isUnpartitioned()) {
-        for (PartitionField partitionField : table.spec().fields()) {
-          Preconditions.checkState(equalityFieldIds.contains(partitionField.sourceId()),
-              "Partition field '%s' is not included in equality fields: '%s'", partitionField, equalityFieldColumns);
-        }
-      }
-
       // Validate the equality fields if we enable the upsert stream.
       if (upsert) {
         Preconditions.checkState(!equalityFieldIds.isEmpty(),
             "Equality field columns shouldn't be empty when configuring to use UPSERT data stream.");
+        if (!table.spec().isUnpartitioned()) {
+          for (PartitionField partitionField : table.spec().fields()) {
+            Preconditions.checkState(equalityFieldIds.contains(partitionField.sourceId()),
+                "Partition field '%s' is not included in equality fields: '%s'", partitionField, equalityFieldColumns);
+          }
+        }
       }
 
       // Convert the requested flink table schema to flink row type.

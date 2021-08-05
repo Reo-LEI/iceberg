@@ -44,7 +44,7 @@ public class Util {
   private static final Map<String, FileSystem> CACHE = new ConcurrentHashMap<>();
 
   private static String HdfsAuthEnable = "true";  // enable hdfs user auth by default
-  private static String HadoopUserName = "Anonymous";
+  private static String HadoopUserName = getHadoopUserName() != null ? getHadoopUserName() : "Anonymous";
 
 
   private Util() {
@@ -53,6 +53,14 @@ public class Util {
   public static void setAuthProps(boolean authEnable, String userName) {
     HdfsAuthEnable = Boolean.toString(authEnable).toLowerCase();
     HadoopUserName = userName;
+  }
+
+  private static String getHadoopUserName() {
+    String user = System.getenv("HADOOP_USER_NAME");
+    if (user != null && user.contains("@")) {
+      user = user.split("@")[0];
+    }
+    return user;
   }
 
   public static FileSystem getFs(Path path, Configuration conf) {
