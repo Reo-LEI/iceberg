@@ -43,38 +43,48 @@ public class Util {
   private static final Logger LOG = LoggerFactory.getLogger(Util.class);
   private static final Map<String, FileSystem> CACHE = new ConcurrentHashMap<>();
 
-  private static String HdfsAuthEnable = "true";  // enable hdfs user auth by default
-  private static String HadoopUserName = getHadoopUserName() != null ? getHadoopUserName() : "Anonymous";
+  private static final String ANONYMOUS_HADOOP_USER = "Anonymous";
+  private static String DEFAULT_HADOOP_USER = ANONYMOUS_HADOOP_USER;
 
 
   private Util() {
   }
 
-  public static void setAuthProps(boolean authEnable, String userName) {
-    HdfsAuthEnable = Boolean.toString(authEnable).toLowerCase();
-    HadoopUserName = userName;
+  public static void dfaultHadoopUser(String userName) {
+    DEFAULT_HADOOP_USER = userName;
   }
 
-  private static String getHadoopUserName() {
+  private static boolean fsAuthEnable(String userName) {
+    return !userName.equals(ANONYMOUS_HADOOP_USER);
+  }
+
+  private static String loadHadoopUser(Configuration conf) {
     String user = System.getenv("HADOOP_USER_NAME");
-    if (user != null && user.contains("@")) {
-      user = user.split("@")[0];
+    if(user != null) {
+      if (user.contains("@")) {
+        user = user.split("@")[0];
+      }
+      return user;
     }
-    return user;
+
+    user = conf.get(ConfigProperties.HDFS_AUTH_USER);
+    if (user != null) {
+      return user;
+    }
+
+    return DEFAULT_HADOOP_USER;
   }
 
   public static FileSystem getFs(Path path, Configuration conf) {
-    boolean authEnable = Boolean.parseBoolean(conf.get(ConfigProperties.HDFS_AUTH_ENABLE, HdfsAuthEnable));
-    String userName = conf.get(ConfigProperties.HDFS_AUTH_USER, HadoopUserName);
+    String userName = loadHadoopUser(conf);
 
-    String proxyUserName = conf.get(ConfigProperties.ICEBERG_PROXY_USER);
-    if (proxyUserName != null) {
-      authEnable = true;  // enable hdfs user auth for proxy user
-      userName = proxyUserName;
+    String proxyUser = conf.get(ConfigProperties.ICEBERG_PROXY_USER);
+    if (proxyUser != null) {
+      userName = proxyUser;
     }
 
     try {
-      if (authEnable) {
+      if (fsAuthEnable(userName)) {
         UserGroupInformation.createUserForTesting(userName, new String[]{"supergroup"});
         Path root = new Path(path.toUri().getScheme(), path.toUri().getAuthority(), "/");
         String key = userName + "@" + root;
