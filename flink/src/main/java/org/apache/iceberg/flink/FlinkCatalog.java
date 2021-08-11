@@ -371,7 +371,7 @@ public class FlinkCatalog extends AbstractCatalog {
 
   void createIcebergTable(ObjectPath tablePath, CatalogBaseTable table, boolean ignoreIfExists)
       throws CatalogException, TableAlreadyExistException {
-    validateFlinkTable(table);
+    // validateFlinkTable(table);
 
     Schema icebergSchema = FlinkSchemaUtil.convert(table.getSchema());
     PartitionSpec spec = toPartitionSpec(((CatalogTable) table).getPartitionKeys(), icebergSchema);
@@ -403,7 +403,7 @@ public class FlinkCatalog extends AbstractCatalog {
   @Override
   public void alterTable(ObjectPath tablePath, CatalogBaseTable newTable, boolean ignoreIfNotExists)
       throws CatalogException, TableNotExistException {
-    validateFlinkTable(newTable);
+    // validateFlinkTable(newTable);
 
     Table icebergTable;
     try {

@@ -132,7 +132,7 @@ abstract class BaseFlinkAction<ThisT, R> implements Action<ThisT, R> {
           out.collect(iterator.next());
         }
       } catch (Exception e) {
-        LOG.error("Failed to read manifest file: " + manifestFileBean.getPath());
+        LOG.error("Failed to read manifest file: {}", manifestFileBean.getPath(), e);
         throw e;
       }
     }

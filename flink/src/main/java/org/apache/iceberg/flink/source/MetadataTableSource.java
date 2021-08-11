@@ -127,7 +127,7 @@ public class MetadataTableSource {
           out.collect(rowData);
         }
       } catch (Exception e) {
-        LOG.error("Failed to read metadata table: " + name);
+        LOG.error("Failed to read metadata table: {}", name, e);
         throw e;
       }
     }
