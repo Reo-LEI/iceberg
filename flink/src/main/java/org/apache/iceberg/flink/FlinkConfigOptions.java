@@ -19,7 +19,6 @@
 
 package org.apache.iceberg.flink;
 
-
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 
@@ -38,6 +37,6 @@ public class FlinkConfigOptions {
   public static final ConfigOption<Integer> TABLE_EXEC_ICEBERG_INFER_SOURCE_PARALLELISM_MAX =
       ConfigOptions.key("table.exec.iceberg.infer-source-parallelism.max")
           .intType()
-          .defaultValue(100)
+          .noDefaultValue()
           .withDescription("Sets max infer parallelism for source operator.");
 }

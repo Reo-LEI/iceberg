@@ -19,6 +19,8 @@
 
 package org.apache.iceberg.flink.source;
 
+import static org.apache.iceberg.TableProperties.DEFAULT_NAME_MAPPING;
+
 import java.io.Serializable;
 import java.time.Duration;
 import java.util.List;
@@ -28,8 +30,6 @@ import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.expressions.Expression;
-
-import static org.apache.iceberg.TableProperties.DEFAULT_NAME_MAPPING;
 
 /**
  * Context object with optional arguments for a Flink Scan.
@@ -63,7 +63,7 @@ class ScanContext implements Serializable {
       ConfigOptions.key("split-file-open-cost").longType().defaultValue(null);
 
   private static final ConfigOption<Boolean> STREAMING =
-      ConfigOptions.key("streaming").booleanType().defaultValue(false);
+      ConfigOptions.key("streaming").booleanType().defaultValue(true);
 
   private static final ConfigOption<Duration> MONITOR_INTERVAL =
       ConfigOptions.key("monitor-interval").durationType().defaultValue(Duration.ofSeconds(10));
@@ -84,10 +84,11 @@ class ScanContext implements Serializable {
   private final List<Expression> filters;
   private final long limit;
 
-  private ScanContext(boolean caseSensitive, Long snapshotId, Long startSnapshotId, Long endSnapshotId,
-                      Long asOfTimestamp, Long splitSize, Integer splitLookback, Long splitOpenFileCost,
-                      boolean isStreaming, Duration monitorInterval, String nameMapping,
-                      Schema schema, List<Expression> filters, long limit) {
+  private ScanContext(
+      boolean caseSensitive, Long snapshotId, Long startSnapshotId, Long endSnapshotId,
+      Long asOfTimestamp, Long splitSize, Integer splitLookback, Long splitOpenFileCost,
+      boolean isStreaming, Duration monitorInterval, String nameMapping,
+      Schema schema, List<Expression> filters, long limit) {
     this.caseSensitive = caseSensitive;
     this.snapshotId = snapshotId;
     this.startSnapshotId = startSnapshotId;

@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ReadableConfig;
@@ -167,6 +168,7 @@ public class FlinkSource {
       this.readableConfig = config;
       return this;
     }
+
     public Builder uidPrefix(String newPrefix) {
       this.uidPrefix = newPrefix;
       return this;
@@ -221,16 +223,24 @@ public class FlinkSource {
         String readerOperatorName = String.format("Iceberg table (%s) reader", table);
 
         return env.addSource(function, monitorFunctionName).uid(uidPrefix != null ? uidPrefix + "-monitor" : null)
-            .transform(readerOperatorName, typeInfo, StreamingReaderOperator.factory(format)).uid(uidPrefix != null ? uidPrefix + "-reader" : null);
+            .transform(readerOperatorName, typeInfo, StreamingReaderOperator.factory(format)).uid(uidPrefix != null ?
+                uidPrefix + "-reader" : null);
       }
     }
 
     int inferParallelism(FlinkInputFormat format, ScanContext context) {
       int parallelism = readableConfig.get(ExecutionConfigOptions.TABLE_EXEC_RESOURCE_DEFAULT_PARALLELISM);
       if (readableConfig.get(FlinkConfigOptions.TABLE_EXEC_ICEBERG_INFER_SOURCE_PARALLELISM)) {
-        int maxInferParallelism = readableConfig.get(FlinkConfigOptions
-            .TABLE_EXEC_ICEBERG_INFER_SOURCE_PARALLELISM_MAX);
-        Preconditions.checkState(maxInferParallelism >= 1,
+        Integer maxInferParallelism =
+            readableConfig.get(FlinkConfigOptions.TABLE_EXEC_ICEBERG_INFER_SOURCE_PARALLELISM_MAX);
+        if (Objects.isNull(maxInferParallelism)) {
+          maxInferParallelism = parallelism;
+          if (maxInferParallelism < 0) {
+            maxInferParallelism = 1;
+          }
+        }
+        Preconditions.checkState(
+            maxInferParallelism >= 1,
             FlinkConfigOptions.TABLE_EXEC_ICEBERG_INFER_SOURCE_PARALLELISM_MAX.key() + " cannot be less than 1");
         int splitNum;
         try {

@@ -69,11 +69,14 @@ public class StreamingMonitorFunction extends RichSourceFunction<FlinkInputSplit
   private transient ListState<Long> lastSnapshotIdState;
 
   public StreamingMonitorFunction(TableLoader tableLoader, ScanContext scanContext) {
-    Preconditions.checkArgument(scanContext.snapshotId() == null,
+    Preconditions.checkArgument(
+        scanContext.snapshotId() == null,
         "Cannot set snapshot-id option for streaming reader");
-    Preconditions.checkArgument(scanContext.asOfTimestamp() == null,
+    Preconditions.checkArgument(
+        scanContext.asOfTimestamp() == null,
         "Cannot set as-of-timestamp option for streaming reader");
-    Preconditions.checkArgument(scanContext.endSnapshotId() == null,
+    Preconditions.checkArgument(
+        scanContext.endSnapshotId() == null,
         "Cannot set end-snapshot-id option for streaming reader");
     this.tableLoader = tableLoader;
     this.scanContext = scanContext;
@@ -103,6 +106,11 @@ public class StreamingMonitorFunction extends RichSourceFunction<FlinkInputSplit
           "The option start-snapshot-id %s is not an ancestor of the current snapshot.", scanContext.startSnapshotId());
 
       lastSnapshotId = scanContext.startSnapshotId();
+    } else {
+      Preconditions.checkNotNull(table.currentSnapshot(), "Don't have any available snapshot in table.");
+
+      long currentSnapshotId = table.currentSnapshot().snapshotId();
+      lastSnapshotId = currentSnapshotId;
     }
   }
 
@@ -128,7 +136,6 @@ public class StreamingMonitorFunction extends RichSourceFunction<FlinkInputSplit
   private void monitorAndForwardSplits() {
     // Refresh the table to get the latest committed snapshot.
     table.refresh();
-
     Snapshot snapshot = table.currentSnapshot();
     if (snapshot != null && snapshot.snapshotId() != lastSnapshotId) {
       long snapshotId = snapshot.snapshotId();
