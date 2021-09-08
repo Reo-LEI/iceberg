@@ -72,7 +72,6 @@ abstract class BaseDeltaTaskWriter extends BaseTaskWriter<RowData> {
   @Override
   public void write(RowData row) throws IOException {
     RowDataDeltaWriter writer = route(row);
-    RowDataDebugUtil.print(schema, wrapper, row);
 
     switch (row.getRowKind()) {
       case INSERT:
