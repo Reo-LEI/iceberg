@@ -141,17 +141,15 @@ public class FlinkSink {
     private <T> Builder forMapperOutputType(DataStream<T> input,
                                             MapFunction<T, RowData> mapper,
                                             TypeInformation<RowData> outputType) {
-      // Input stream order is crucial for some situation(e.g. in cdc case), So we need to set the map opr parallelism
-      // as it's input to keep map opr chain to input, and ensure input stream will not be rebalanced.
       this.inputCreator = newUidPrefix -> {
+        // Input stream order is crucial for some situation(e.g. in cdc case), So we need to set the map opr
+        // parallelism as it's input to keep map opr chain to input, and ensure input stream will not be rebalanced.
+        SingleOutputStreamOperator<RowData> inputStream = input.map(mapper, outputType)
+            .setParallelism(input.getParallelism());
         if (newUidPrefix != null) {
-          return input.map(mapper, outputType)
-              .name(operatorName(newUidPrefix))
-              .uid(newUidPrefix + "-mapper")
-              .setParallelism(input.getParallelism());
-        } else {
-          return input.map(mapper, outputType);
+          inputStream.name(operatorName(newUidPrefix)).uid(newUidPrefix + "-mapper");
         }
+        return inputStream;
       };
       return this;
     }
@@ -448,7 +446,7 @@ public class FlinkSink {
     Table serializableTable = SerializableTable.copyOf(table);
     TaskWriterFactory<RowData> taskWriterFactory = new RowDataTaskWriterFactory(
         serializableTable, flinkRowType, targetFileSize,
-        fileFormat, equalityFieldIds, upsert);
+        fileFormat, table.properties(), equalityFieldIds, upsert);
 
     return new IcebergStreamWriter<>(table.name(), taskWriterFactory);
   }

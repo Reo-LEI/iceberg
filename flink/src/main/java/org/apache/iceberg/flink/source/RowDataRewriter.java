@@ -77,6 +77,7 @@ public class RowDataRewriter {
         flinkSchema,
         Long.MAX_VALUE,
         format,
+        table.properties(),
         null,
         false);
   }

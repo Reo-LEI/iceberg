@@ -21,6 +21,7 @@ package org.apache.iceberg.flink.sink;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.iceberg.FileFormat;
@@ -29,6 +30,7 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.flink.RowDataWrapper;
+import org.apache.iceberg.flink.util.RowDataDebugUtil;
 import org.apache.iceberg.io.BaseTaskWriter;
 import org.apache.iceberg.io.FileAppenderFactory;
 import org.apache.iceberg.io.FileIO;
@@ -49,11 +51,12 @@ abstract class BaseDeltaTaskWriter extends BaseTaskWriter<RowData> {
                       OutputFileFactory fileFactory,
                       FileIO io,
                       long targetFileSize,
+                      Map<String, String> properties,
                       Schema schema,
                       RowType flinkSchema,
                       List<Integer> equalityFieldIds,
                       boolean upsert) {
-    super(spec, format, appenderFactory, fileFactory, io, targetFileSize);
+    super(spec, format, appenderFactory, fileFactory, io, targetFileSize, properties);
     this.schema = schema;
     this.deleteSchema = TypeUtil.select(schema, Sets.newHashSet(equalityFieldIds));
     this.wrapper = new RowDataWrapper(flinkSchema, schema.asStruct());
@@ -69,6 +72,7 @@ abstract class BaseDeltaTaskWriter extends BaseTaskWriter<RowData> {
   @Override
   public void write(RowData row) throws IOException {
     RowDataDeltaWriter writer = route(row);
+    RowDataDebugUtil.print(schema, wrapper, row);
 
     switch (row.getRowKind()) {
       case INSERT:
