@@ -22,6 +22,7 @@ package org.apache.iceberg.util;
 import java.util.List;
 import java.util.function.Function;
 import org.apache.iceberg.DataFile;
+import org.apache.iceberg.HistoryEntry;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.exceptions.ValidationException;
@@ -75,6 +76,21 @@ public class SnapshotUtil {
     }
 
     return current;
+  }
+
+  /**
+   * Traverses the history of the table's current snapshot and finds the last Snapshot before the given timestamp.
+   * @return null if there is no current snapshot in the table, else the the last Snapshot before the given timestamp.
+   */
+  public static Snapshot asOfTimestamp(Table table, long timestampMillis) {
+    Long lastSnapshotId = null;
+    for (HistoryEntry logEntry : table.history()) {
+      if (logEntry.timestampMillis() <= timestampMillis) {
+        lastSnapshotId = logEntry.snapshotId();
+      }
+    }
+
+    return lastSnapshotId != null ? table.snapshot(lastSnapshotId) : null;
   }
 
   /**
