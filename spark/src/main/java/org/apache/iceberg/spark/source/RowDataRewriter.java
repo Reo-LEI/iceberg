@@ -86,23 +86,27 @@ public class RowDataRewriter implements Serializable {
     RowDataReader dataReader = new RowDataReader(task, table, schema, caseSensitive);
 
     StructType structType = SparkSchemaUtil.convert(schema);
-    SparkAppenderFactory appenderFactory =
-        SparkAppenderFactory.builderFor(table, schema, structType).spec(spec).build();
-    OutputFileFactory fileFactory = new OutputFileFactory(table, spec, format, partitionId, taskId);
+    SparkAppenderFactory appenderFactory = SparkAppenderFactory.builderFor(table, schema, structType)
+        .spec(spec)
+        .build();
+    OutputFileFactory fileFactory = OutputFileFactory.builderFor(table, partitionId, taskId)
+        .defaultSpec(spec)
+        .format(format)
+        .build();
 
     TaskWriter<InternalRow> writer;
     if (spec.isUnpartitioned()) {
       writer = new UnpartitionedWriter<>(spec, format, appenderFactory, fileFactory, table.io(),
-          Long.MAX_VALUE);
+          Long.MAX_VALUE, properties);
     } else if (PropertyUtil.propertyAsBoolean(properties,
         TableProperties.SPARK_WRITE_PARTITIONED_FANOUT_ENABLED,
         TableProperties.SPARK_WRITE_PARTITIONED_FANOUT_ENABLED_DEFAULT)) {
       writer = new SparkPartitionedFanoutWriter(
-          spec, format, appenderFactory, fileFactory, table.io(), Long.MAX_VALUE, schema,
+          spec, format, appenderFactory, fileFactory, table.io(), Long.MAX_VALUE, properties, schema,
           structType);
     } else {
       writer = new SparkPartitionedWriter(
-          spec, format, appenderFactory, fileFactory, table.io(), Long.MAX_VALUE, schema,
+          spec, format, appenderFactory, fileFactory, table.io(), Long.MAX_VALUE, properties, schema,
           structType);
     }
 

@@ -32,6 +32,7 @@ import org.apache.iceberg.exceptions.RuntimeIOException;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.relocated.com.google.common.collect.Sets;
+import org.apache.iceberg.util.DESUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,44 +43,57 @@ public class Util {
   private static final Logger LOG = LoggerFactory.getLogger(Util.class);
   private static final Map<String, FileSystem> CACHE = new ConcurrentHashMap<>();
 
-  private static String HdfsAuthEnable = "false";
-  private static String HadoopUserName = "Anonymous";
-  private static String HadoopUserToken = "token";
+  private static final String ANONYMOUS_HADOOP_USER = "Anonymous";
+  private static String DEFAULT_HADOOP_USER = ANONYMOUS_HADOOP_USER;
 
 
   private Util() {
   }
 
-  public static void setAuthProps(boolean authEnable, String userName, String userToken) {
-    HdfsAuthEnable = Boolean.toString(authEnable).toLowerCase();
-    HadoopUserName = userName;
-    HadoopUserToken = userToken;
+  public static void dfaultHadoopUser(String userName) {
+    DEFAULT_HADOOP_USER = userName;
+  }
+
+  private static boolean fsAuthEnable(String userName) {
+    return !userName.equals(ANONYMOUS_HADOOP_USER);
+  }
+
+  private static String loadHadoopUser(Configuration conf) {
+    String user = System.getenv("HADOOP_USER_NAME");
+    if(user != null) {
+      if (user.contains("@")) {
+        user = user.split("@")[0];
+      }
+      return user;
+    }
+
+    user = conf.get(ConfigProperties.HDFS_AUTH_USER);
+    if (user != null) {
+      return user;
+    }
+
+    return DEFAULT_HADOOP_USER;
   }
 
   public static FileSystem getFs(Path path, Configuration conf) {
-    boolean authEnable = Boolean.parseBoolean(conf.get(ConfigProperties.HDFS_AUTH_ENABLE, HdfsAuthEnable));
-    String userName = conf.get(ConfigProperties.HDFS_AUTH_USER, HadoopUserName);
-    String userToken = conf.get(ConfigProperties.HDFS_AUTH_TOKEN, HadoopUserToken);
+    String userName = loadHadoopUser(conf);
 
-    String proxyUserName = conf.get(ConfigProperties.ICEBERG_PROXY_USER);
-    String proxyUserToken = conf.get(ConfigProperties.ICEBERG_PROXY_TOKEN);
-    if (proxyUserName != null && proxyUserToken != null) {
-      authEnable = true;  // enable hdfs user auth for proxy user
-      userName = proxyUserName;
-      userToken = proxyUserToken;
+    String proxyUser = conf.get(ConfigProperties.ICEBERG_PROXY_USER);
+    if (proxyUser != null) {
+      userName = proxyUser;
     }
 
     try {
-      if (authEnable) {
+      if (fsAuthEnable(userName)) {
         UserGroupInformation.createUserForTesting(userName, new String[]{"supergroup"});
-        String user = userName + "@" + userToken;
         Path root = new Path(path.toUri().getScheme(), path.toUri().getAuthority(), "/");
-        String key = user + "@" + root;
+        String key = userName + "@" + root;
 
         if (CACHE.containsKey(key)) {
           return CACHE.get(key);
         }
 
+        String user = userName + "@" + DESUtil.encrypt(userName);
         FileSystem fs = FileSystem.get(root.toUri(), conf, user);
 
         CACHE.putIfAbsent(key, fs);

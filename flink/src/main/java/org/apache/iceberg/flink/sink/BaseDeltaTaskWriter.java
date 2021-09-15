@@ -21,6 +21,7 @@ package org.apache.iceberg.flink.sink;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.iceberg.FileFormat;
@@ -41,6 +42,7 @@ abstract class BaseDeltaTaskWriter extends BaseTaskWriter<RowData> {
   private final Schema schema;
   private final Schema deleteSchema;
   private final RowDataWrapper wrapper;
+  private final boolean upsert;
 
   BaseDeltaTaskWriter(PartitionSpec spec,
                       FileFormat format,
@@ -48,13 +50,16 @@ abstract class BaseDeltaTaskWriter extends BaseTaskWriter<RowData> {
                       OutputFileFactory fileFactory,
                       FileIO io,
                       long targetFileSize,
+                      Map<String, String> properties,
                       Schema schema,
                       RowType flinkSchema,
-                      List<Integer> equalityFieldIds) {
-    super(spec, format, appenderFactory, fileFactory, io, targetFileSize);
+                      List<Integer> equalityFieldIds,
+                      boolean upsert) {
+    super(spec, format, appenderFactory, fileFactory, io, targetFileSize, properties);
     this.schema = schema;
     this.deleteSchema = TypeUtil.select(schema, Sets.newHashSet(equalityFieldIds));
     this.wrapper = new RowDataWrapper(flinkSchema, schema.asStruct());
+    this.upsert = upsert;
   }
 
   abstract RowDataDeltaWriter route(RowData row);
@@ -70,11 +75,17 @@ abstract class BaseDeltaTaskWriter extends BaseTaskWriter<RowData> {
     switch (row.getRowKind()) {
       case INSERT:
       case UPDATE_AFTER:
+        if (upsert) {
+          writer.delete(row);
+        }
         writer.write(row);
         break;
 
-      case DELETE:
       case UPDATE_BEFORE:
+        if (upsert) {
+          break;  // UPDATE_BEFORE is not necessary for UPDATE, we do nothing to prevent delete one row twice
+        }
+      case DELETE:
         writer.delete(row);
         break;
 
