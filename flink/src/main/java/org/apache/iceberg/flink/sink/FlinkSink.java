@@ -59,6 +59,8 @@ import org.slf4j.LoggerFactory;
 
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
+import static org.apache.iceberg.TableProperties.UPSERT_MODE_ENABLE;
+import static org.apache.iceberg.TableProperties.UPSERT_MODE_ENABLE_DEFAULT;
 import static org.apache.iceberg.TableProperties.WRITE_DISTRIBUTION_MODE;
 import static org.apache.iceberg.TableProperties.WRITE_DISTRIBUTION_MODE_DEFAULT;
 import static org.apache.iceberg.TableProperties.WRITE_TARGET_FILE_SIZE_BYTES;
@@ -266,7 +268,7 @@ public class FlinkSink {
       return this;
     }
 
-    public DataStreamSink<RowData> build() {
+    private <T> DataStreamSink<T> chainIcebergOperators() {
       Preconditions.checkArgument(inputCreator != null,
           "Please use forRowData() or forMapperOutputType() to initialize the input DataStream.");
       Preconditions.checkNotNull(tableLoader, "Table loader shouldn't be null");
@@ -293,18 +295,6 @@ public class FlinkSink {
         }
       }
 
-      // Validate the equality fields if we enable the upsert stream.
-      if (upsert) {
-        Preconditions.checkState(!equalityFieldIds.isEmpty(),
-            "Equality field columns shouldn't be empty when configuring to use UPSERT data stream.");
-        if (!table.spec().isUnpartitioned()) {
-          for (PartitionField partitionField : table.spec().fields()) {
-            Preconditions.checkState(equalityFieldIds.contains(partitionField.sourceId()),
-                "Partition field '%s' is not included in equality fields: '%s'", partitionField, equalityFieldColumns);
-          }
-        }
-      }
-
       // Convert the requested flink table schema to flink row type.
       RowType flinkRowType = toFlinkRowType(table.schema(), tableSchema);
 
@@ -324,12 +314,34 @@ public class FlinkSink {
       return appendDummySink(committerStream);
     }
 
+    /**
+     * Append the iceberg sink operators to write records to iceberg table.
+     *
+     * @return {@link DataStreamSink} for sink.
+     * @deprecated this will be removed in 0.14.0; use {@link #append()} because its returned {@link DataStreamSink}
+     * has a more correct data type.
+     */
+    @Deprecated
+    public DataStreamSink<RowData> build() {
+      return chainIcebergOperators();
+    }
+
+    /**
+     * Append the iceberg sink operators to write records to iceberg table.
+     *
+     * @return {@link DataStreamSink} for sink.
+     */
+    public DataStreamSink<Void> append() {
+      return chainIcebergOperators();
+    }
+
     private String operatorName(String suffix) {
       return uidPrefix != null ? uidPrefix + "-" + suffix : suffix;
     }
 
-    private DataStreamSink<RowData> appendDummySink(SingleOutputStreamOperator<Void> committerStream) {
-      DataStreamSink<RowData> resultStream = committerStream
+    @SuppressWarnings("unchecked")
+    private <T> DataStreamSink<T> appendDummySink(SingleOutputStreamOperator<Void> committerStream) {
+      DataStreamSink<T> resultStream = committerStream
           .addSink(new DiscardingSink())
           .name(operatorName(String.format("IcebergSink %s", this.table.name())))
           .setParallelism(1);
@@ -355,7 +367,27 @@ public class FlinkSink {
     private SingleOutputStreamOperator<WriteResult> appendWriter(DataStream<RowData> input,
                                                                  RowType flinkRowType,
                                                                  List<Integer> equalityFieldIds) {
-      IcebergStreamWriter<RowData> streamWriter = createStreamWriter(table, flinkRowType, equalityFieldIds, upsert);
+
+      // Fallback to use upsert mode parsed from table properties if don't specify in job level.
+      boolean upsertMode = upsert || PropertyUtil.propertyAsBoolean(table.properties(),
+          UPSERT_MODE_ENABLE, UPSERT_MODE_ENABLE_DEFAULT);
+
+      // Validate the equality fields and partition fields if we enable the upsert mode.
+      if (upsertMode) {
+        Preconditions.checkState(!overwrite,
+            "OVERWRITE mode shouldn't be enable when configuring to use UPSERT data stream.");
+        Preconditions.checkState(!equalityFieldIds.isEmpty(),
+            "Equality field columns shouldn't be empty when configuring to use UPSERT data stream.");
+        if (!table.spec().isUnpartitioned()) {
+          for (PartitionField partitionField : table.spec().fields()) {
+            Preconditions.checkState(equalityFieldIds.contains(partitionField.sourceId()),
+                "In UPSERT mode, partition field '%s' should be included in equality fields: '%s'",
+                partitionField, equalityFieldColumns);
+          }
+        }
+      }
+
+      IcebergStreamWriter<RowData> streamWriter = createStreamWriter(table, flinkRowType, equalityFieldIds, upsertMode);
 
       SingleOutputStreamOperator<WriteResult> writerStream = input
           .transform(operatorName(ICEBERG_STREAM_WRITER_NAME), TypeInformation.of(WriteResult.class), streamWriter);

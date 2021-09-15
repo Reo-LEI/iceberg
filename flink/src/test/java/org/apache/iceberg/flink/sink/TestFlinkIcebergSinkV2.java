@@ -323,6 +323,26 @@ public class TestFlinkIcebergSinkV2 extends TableTestBase {
   }
 
   @Test
+  public void testUpsertModeCheck() throws Exception {
+    DataStream<Row> dataStream = env.addSource(new BoundedTestSource<>(ImmutableList.of()), ROW_TYPE_INFO);
+    FlinkSink.Builder builder = FlinkSink.forRow(dataStream, SimpleDataUtil.FLINK_SCHEMA)
+        .tableLoader(tableLoader)
+        .tableSchema(SimpleDataUtil.FLINK_SCHEMA)
+        .writeParallelism(parallelism)
+        .upsert(true);
+
+    AssertHelpers.assertThrows("Should be error because upsert mode and overwrite mode enable at the same time.",
+        IllegalStateException.class, "OVERWRITE mode shouldn't be enable",
+        () -> builder.equalityFieldColumns(ImmutableList.of("id")).overwrite(true).build()
+    );
+
+    AssertHelpers.assertThrows("Should be error because equality field columns are empty.",
+        IllegalStateException.class, "Equality field columns shouldn't be empty",
+        () -> builder.equalityFieldColumns(ImmutableList.of()).overwrite(false).build()
+    );
+  }
+
+  @Test
   public void testUpsertOnIdKey() throws Exception {
     List<List<Row>> elementsPerCheckpoint = ImmutableList.of(
         ImmutableList.of(
@@ -349,7 +369,7 @@ public class TestFlinkIcebergSinkV2 extends TableTestBase {
           elementsPerCheckpoint, expectedRecords);
     } else {
       AssertHelpers.assertThrows("Should be error because equality field columns don't include all partition keys",
-          IllegalStateException.class, "not included in equality fields",
+          IllegalStateException.class, "should be included in equality fields",
           () -> {
             testChangeLogs(ImmutableList.of("id"), row -> row.getField(ROW_ID_POS), true, elementsPerCheckpoint,
                 expectedRecords);
