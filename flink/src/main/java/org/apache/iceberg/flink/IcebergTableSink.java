@@ -36,10 +36,6 @@ import org.apache.flink.types.RowKind;
 import org.apache.flink.util.Preconditions;
 import org.apache.iceberg.flink.sink.FlinkSink;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList;
-import org.apache.iceberg.util.PropertyUtil;
-
-import static org.apache.iceberg.TableProperties.UPSERT_MODE_ENABLED;
-import static org.apache.iceberg.TableProperties.UPSERT_MODE_ENABLED_DEFAULT;
 
 public class IcebergTableSink implements DynamicTableSink, SupportsPartitioning, SupportsOverwrite {
 
@@ -94,7 +90,6 @@ public class IcebergTableSink implements DynamicTableSink, SupportsPartitioning,
           .tableLoader(tableLoader)
           .tableSchema(tableSchema)
           .equalityFieldColumns(equalityColumns)
-          .upsert(PropertyUtil.propertyAsBoolean(tableProperties, UPSERT_MODE_ENABLED, UPSERT_MODE_ENABLED_DEFAULT))
           .uidPrefix(config.getString(SNK_UID_PREFIX))
           .overwrite(overwrite)
           .build();
