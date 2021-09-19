@@ -47,7 +47,7 @@ class UnpartitionedDeltaWriter extends BaseDeltaTaskWriter {
                            boolean upsert) {
     super(spec, format, appenderFactory, fileFactory, io, targetFileSize, properties, schema, flinkSchema,
         equalityFieldIds, upsert);
-    this.writer = new RowDataDeltaWriter(null);
+    this.writer = loadWriter(null);
   }
 
   @Override

@@ -65,7 +65,7 @@ class PartitionedDeltaWriter extends BaseDeltaTaskWriter {
     if (writer == null) {
       // NOTICE: we need to copy a new partition key here, in case of messing up the keys in writers.
       PartitionKey copiedKey = partitionKey.copy();
-      writer = new RowDataDeltaWriter(copiedKey);
+      writer = loadWriter(copiedKey);
       writers.put(copiedKey, writer);
     }
 

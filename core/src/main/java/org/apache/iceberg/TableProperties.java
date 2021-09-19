@@ -199,6 +199,12 @@ public class TableProperties {
   public static final String WRITE_DISTRIBUTION_MODE_RANGE = "range";
   public static final String WRITE_DISTRIBUTION_MODE_DEFAULT = WRITE_DISTRIBUTION_MODE_NONE;
 
+  public static final String DELTA_WRITER_IMPL = "write.delta-writer-impl";
+  public static final String DELTA_WRITER_IMPL_IN_MEMORY = "in-memory";
+  public static final String DELTA_WRITER_IMPL_ROCKSDB = "rocksdb";
+  public static final String DELTA_WRITER_IMPL_FILE = "file";
+  public static final String DELTA_WRITER_IMPL_DEFAULT = DELTA_WRITER_IMPL_FILE;
+
   public static final String GC_ENABLED = "gc.enabled";
   public static final boolean GC_ENABLED_DEFAULT = true;
 
