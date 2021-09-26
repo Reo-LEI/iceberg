@@ -144,8 +144,8 @@ public class FlinkSink {
                                             MapFunction<T, RowData> mapper,
                                             TypeInformation<RowData> outputType) {
       this.inputCreator = newUidPrefix -> {
-        // Input stream order is crucial for some situation(e.g. in cdc case), So we need to set the map opr
-        // parallelism as it's input to keep map opr chain to input, and ensure input stream will not be rebalanced.
+        // Input stream order is crucial for some situation(e.g. in cdc case). Therefore, we need to set the parallelism
+        // of map operator same as it's input to keep map operator chaining it's input, and avoid rebalanced by default.
         SingleOutputStreamOperator<RowData> inputStream = input.map(mapper, outputType)
             .setParallelism(input.getParallelism());
         if (newUidPrefix != null) {
@@ -298,7 +298,7 @@ public class FlinkSink {
       // Convert the requested flink table schema to flink row type.
       RowType flinkRowType = toFlinkRowType(table.schema(), tableSchema);
 
-      // Distribute the records from input data stream based on the write.distribution-mode.
+      // Distribute the records from input data stream based on the write.distribution-mode and equality fields.
       DataStream<RowData> distributeStream = distributeDataStream(
           rowDataInput, table.properties(), equalityFieldIds, table.spec(), table.schema(), flinkRowType);
 
@@ -345,7 +345,6 @@ public class FlinkSink {
           .addSink(new DiscardingSink())
           .name(operatorName(String.format("IcebergSink %s", this.table.name())))
           .setParallelism(1);
-
       if (uidPrefix != null) {
         resultStream = resultStream.uid(uidPrefix + "-dummysink");
       }
@@ -423,20 +422,18 @@ public class FlinkSink {
       switch (writeMode) {
         case NONE:
           if (!equalityFieldIds.isEmpty()) {
-            return input.keyBy(new EqualityFieldKeySelector(equalityFieldIds, table.schema(), flinkRowType));
-          } else {
-            return input;
+            return input.keyBy(new EqualityFieldKeySelector(equalityFieldIds, iSchema, flinkRowType));
           }
+          return input;
 
         case HASH:
-          if (!partitionSpec.isUnpartitioned() && !equalityFieldIds.isEmpty()) {
-            return input.keyBy(new HybridKeySelector(partitionSpec, equalityFieldIds, iSchema, flinkRowType));
-          } else if (!partitionSpec.isUnpartitioned() && equalityFieldIds.isEmpty()) {
-            return input.keyBy(new PartitionKeySelector(partitionSpec, iSchema, flinkRowType));
-          } else if (partitionSpec.isUnpartitioned() && !equalityFieldIds.isEmpty()) {
-            return input.keyBy(new EqualityFieldKeySelector(equalityFieldIds, table.schema(), flinkRowType));
-          } else {
+          if (partitionSpec.isUnpartitioned()) {
+            if (!equalityFieldIds.isEmpty()) {
+              return input.keyBy(new EqualityFieldKeySelector(equalityFieldIds, iSchema, flinkRowType));
+            }
             return input;
+          } else {
+            return input.keyBy(new PartitionKeySelector(partitionSpec, iSchema, flinkRowType));
           }
 
         case RANGE:
