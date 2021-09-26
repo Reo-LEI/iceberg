@@ -1,20 +1,24 @@
 /*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
  */
 
 package org.apache.iceberg.flink;
 
-import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.time.Instant;
@@ -23,7 +27,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -43,24 +46,34 @@ import org.apache.iceberg.StructLike;
 import org.apache.iceberg.relocated.com.google.common.collect.Maps;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
+import org.apache.iceberg.util.DateTimeUtil;
 
-public class RecordWrapper implements RowData {
-  private static final OffsetDateTime EPOCH = Instant.ofEpochSecond(0).atOffset(ZoneOffset.UTC);
-  private static final LocalDate EPOCH_DAY = EPOCH.toLocalDate();
-
+public class StructRecordWrapper implements RowData {
   private RowKind rowKind = RowKind.INSERT;
   private StructLike record = null;
 
-  private Types.StructType struct;
+  private final Types.StructType struct;
 
-  public RecordWrapper(Types.StructType struct) {
+  public StructRecordWrapper(Types.StructType struct) {
     this.struct = struct;
   }
 
-  public RecordWrapper wrap(RowKind rowKind, StructLike record) {
-    this.rowKind = rowKind;
-    this.record = record;
+  public StructRecordWrapper wrap(StructLike data) {
+    this.wrap(RowKind.INSERT, data);
     return this;
+  }
+  public StructRecordWrapper wrap(RowKind kind, StructLike data) {
+    this.rowKind = kind;
+    this.record = data;
+    return this;
+  }
+
+  private Type getType(int pos) {
+    return struct.fields().get(pos).type();
+  }
+
+  private Class<?> getClass(int pos) {
+    return getType(pos).typeId().javaClass();
   }
 
   @Override
@@ -100,11 +113,11 @@ public class RecordWrapper implements RowData {
 
   @Override
   public int getInt(int pos) {
-    switch (struct.fields().get(pos).type().typeId()) {
+    switch (getType(pos).typeId()) {
       case DATE:
-        return (int) ChronoUnit.DAYS.between(EPOCH_DAY, record.get(pos, LocalDate.class));
+        return DateTimeUtil.daysFromDate(record.get(pos, LocalDate.class));
       case TIME:
-        return (int) TimeUnit.NANOSECONDS.toMillis(record.get(pos, LocalTime.class).toNanoOfDay());
+        return (int) TimeUnit.MICROSECONDS.toMillis(DateTimeUtil.microsFromTime(record.get(pos, LocalTime.class)));
       default:
         return record.get(pos, Integer.class);
     }
@@ -127,7 +140,7 @@ public class RecordWrapper implements RowData {
 
   @Override
   public StringData getString(int pos) {
-    return StringData.fromString(String.valueOf(record.get(pos, struct.fields().get(pos).type().typeId().javaClass())));
+    return StringData.fromString(String.valueOf(record.get(pos, getClass(pos))));
   }
 
   @Override
@@ -137,12 +150,11 @@ public class RecordWrapper implements RowData {
 
   @Override
   public TimestampData getTimestamp(int pos, int precision) {
-    Types.TimestampType timestampType = (Types.TimestampType) struct.fields().get(pos).type();
+    Types.TimestampType timestampType = (Types.TimestampType) getType(pos);
     if (timestampType.shouldAdjustToUTC()) {
-      OffsetDateTime dateTime = (OffsetDateTime) record.get(pos, timestampType.typeId().javaClass());
-      return TimestampData.fromInstant(dateTime.toInstant());
+      return TimestampData.fromInstant(record.get(pos, OffsetDateTime.class).toInstant());
     }
-    return TimestampData.fromLocalDateTime((LocalDateTime) record.get(pos, timestampType.typeId().javaClass()));
+    return TimestampData.fromLocalDateTime(record.get(pos, LocalDateTime.class));
   }
 
   @Override
@@ -152,23 +164,28 @@ public class RecordWrapper implements RowData {
 
   @Override
   public byte[] getBinary(int pos) {
-    if (Type.TypeID.UUID == struct.fields().get(pos).type().typeId()) {
-      UUID uuid = record.get(pos, UUID.class);
-      ByteBuffer bb = ByteBuffer.allocate(16);
-      bb.putLong(uuid.getMostSignificantBits());
-      bb.putLong(uuid.getLeastSignificantBits());
-      return bb.array();
+    Type.TypeID typeID = getType(pos).typeId();
+    switch (typeID) {
+      case FIXED: return record.get(pos, byte[].class);
+      case UUID: {
+        UUID uuid = record.get(pos, UUID.class);
+        ByteBuffer bb = ByteBuffer.allocate(16);
+        bb.putLong(uuid.getMostSignificantBits());
+        bb.putLong(uuid.getLeastSignificantBits());
+        return bb.array();
+      }
+      default: {
+        ByteBuffer buffer = record.get(pos, ByteBuffer.class);
+        int from = buffer.arrayOffset() + buffer.position();
+        int to = buffer.arrayOffset() + buffer.remaining();
+        return Arrays.copyOfRange(buffer.array(), from, to);
+      }
     }
-
-    ByteBuffer buffer = record.get(pos, ByteBuffer.class);
-    int from = buffer.arrayOffset() + buffer.position();
-    int to = buffer.arrayOffset() + buffer.remaining();
-    return Arrays.copyOfRange(buffer.array(), from, to);
   }
 
   @Override
   public ArrayData getArray(int pos) {
-    Types.ListType listType = struct.fields().get(pos).type().asListType();
+    Types.ListType listType = getType(pos).asListType();
     Class<?> javaClass = listType.elementType().typeId().javaClass();
 
     List<?> list = record.get(pos, List.class);
@@ -181,7 +198,7 @@ public class RecordWrapper implements RowData {
 
   @Override
   public MapData getMap(int pos) {
-    Types.MapType mapType = struct.fields().get(pos).type().asMapType();
+    Types.MapType mapType = getType(pos).asMapType();
     Class<?> keyClass = mapType.keyType().typeId().javaClass();
     Class<?> valueClass = mapType.valueType().typeId().javaClass();
 
@@ -195,8 +212,8 @@ public class RecordWrapper implements RowData {
 
   @Override
   public RowData getRow(int pos, int numFields) {
-    Types.StructType structType = struct.fields().get(pos).type().asStructType();
-    RecordWrapper nestedWrapper = new RecordWrapper(structType);
+    Types.StructType structType = getType(pos).asStructType();
+    StructRecordWrapper nestedWrapper = new StructRecordWrapper(structType);
     return nestedWrapper.wrap(rowKind, record.get(pos, StructLike.class));
   }
 }

@@ -36,8 +36,8 @@ import org.apache.iceberg.PartitionKey;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.StructLike;
-import org.apache.iceberg.flink.RecordWrapper;
 import org.apache.iceberg.flink.RowDataWrapper;
+import org.apache.iceberg.flink.StructRecordWrapper;
 import org.apache.iceberg.io.BaseTaskWriter;
 import org.apache.iceberg.io.FileAppenderFactory;
 import org.apache.iceberg.io.FileIO;
@@ -188,7 +188,7 @@ abstract class BaseDeltaTaskWriter extends BaseTaskWriter<RowData> {
     private static final String ROCKSDB_DIR_OPTION = "rocksdb-dir";
     private static final String ROCKSDB_DIR_PREFIX = "iceberg-rocksdb-delta-writer-";
 
-    private RecordWrapper recordWrapper;
+    private final StructRecordWrapper structRecordWrapper;
     private RollingFileWriter dataWriter;
     private RollingEqDeleteWriter eqDeleteWriter;
 
@@ -206,7 +206,7 @@ abstract class BaseDeltaTaskWriter extends BaseTaskWriter<RowData> {
     private RocksDBDeltaWriter(PartitionKey partition) {
       RocksDB.loadLibrary();
 
-      this.recordWrapper = new RecordWrapper(schema.asStruct());
+      this.structRecordWrapper = new StructRecordWrapper(schema.asStruct());
       this.dataWriter = new RollingFileWriter(partition);
       this.eqDeleteWriter = new RollingEqDeleteWriter(partition);
 
@@ -293,7 +293,7 @@ abstract class BaseDeltaTaskWriter extends BaseTaskWriter<RowData> {
         ColumnFamilyHandle insertTable = cfHandles.get(1);
         try (RocksIterator iter = db.newIterator(insertTable)) {
           for (iter.seekToFirst(); iter.isValid(); iter.next()) {
-            RowData row = recordWrapper.wrap(RowKind.INSERT, valSerializer.deserialize(iter.value()));
+            RowData row = structRecordWrapper.wrap(RowKind.INSERT, valSerializer.deserialize(iter.value()));
             dataWriter.write(row);
           }
         } finally {
@@ -306,7 +306,7 @@ abstract class BaseDeltaTaskWriter extends BaseTaskWriter<RowData> {
         ColumnFamilyHandle deleteTable = cfHandles.get(2);
         try (RocksIterator iter = db.newIterator(deleteTable)) {
           for (iter.seekToFirst(); iter.isValid(); iter.next()) {
-            RowData row = recordWrapper.wrap(RowKind.DELETE, valSerializer.deserialize(iter.value()));
+            RowData row = structRecordWrapper.wrap(RowKind.DELETE, valSerializer.deserialize(iter.value()));
             eqDeleteWriter.write(row);
           }
         } finally {
