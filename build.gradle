@@ -115,10 +115,6 @@ subprojects {
     options.encoding = 'UTF-8'
   }
 
-  ext {
-    jmhVersion = '1.21'
-  }
-
   sourceCompatibility = '1.8'
   targetCompatibility = '1.8'
 
@@ -227,7 +223,7 @@ project(':iceberg-core') {
     implementation "com.fasterxml.jackson.core:jackson-databind"
     implementation "com.fasterxml.jackson.core:jackson-core"
     implementation "com.github.ben-manes.caffeine:caffeine"
-    implementation "org.rocksdb:rocksdbjni"
+    api "org.rocksdb:rocksdbjni"
     compileOnly("org.apache.hadoop:hadoop-client") {
       exclude group: 'org.apache.avro', module: 'avro'
       exclude group: 'org.slf4j', module: 'slf4j-log4j12'

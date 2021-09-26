@@ -101,7 +101,9 @@ public abstract class PartitionedFanoutWriter<T> extends BaseTaskWriter<T> {
     try {
       for (CompletableFuture<Exception> future : futures) {
         Exception exception = future.get();
-        if (exception != null) {throw (IOException) exception;}
+        if (exception != null) {
+          throw (IOException) exception;
+        }
       }
     } catch (InterruptedException | ExecutionException e) {
       throw new IOException(e);

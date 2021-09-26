@@ -26,7 +26,7 @@ import org.apache.iceberg.StructLike;
  */
 public class StructCopy implements StructLike {
   public static StructLike copy(StructLike struct) {
-    return new StructCopy(struct);
+    return struct != null ? new StructCopy(struct) : null;
   }
 
   private final Object[] values;
