@@ -93,7 +93,7 @@ public class IcebergTableSink implements DynamicTableSink, SupportsPartitioning,
           .equalityFieldColumns(equalityColumns)
           .uidPrefix(config.getString(SNK_UID_PREFIX))
           .overwrite(overwrite)
-          .build();
+          .append();
     };
   }
 
