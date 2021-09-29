@@ -21,12 +21,6 @@ package org.apache.iceberg.flink;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -113,14 +107,10 @@ public class StructRecordWrapper implements RowData {
 
   @Override
   public int getInt(int pos) {
-    switch (getType(pos).typeId()) {
-      case DATE:
-        return DateTimeUtil.daysFromDate(record.get(pos, LocalDate.class));
-      case TIME:
-        return (int) TimeUnit.MICROSECONDS.toMillis(DateTimeUtil.microsFromTime(record.get(pos, LocalTime.class)));
-      default:
-        return record.get(pos, Integer.class);
+    if (getType(pos).typeId() == Type.TypeID.TIME) {
+      return (int) TimeUnit.MICROSECONDS.toMillis(record.get(pos, Long.class));
     }
+    return record.get(pos, Integer.class);
   }
 
   @Override
@@ -151,10 +141,11 @@ public class StructRecordWrapper implements RowData {
   @Override
   public TimestampData getTimestamp(int pos, int precision) {
     Types.TimestampType timestampType = (Types.TimestampType) getType(pos);
+    long ts = record.get(pos, Long.class);
     if (timestampType.shouldAdjustToUTC()) {
-      return TimestampData.fromInstant(record.get(pos, OffsetDateTime.class).toInstant());
+      return TimestampData.fromInstant(DateTimeUtil.timestamptzFromMicros(ts).toInstant());
     }
-    return TimestampData.fromLocalDateTime(record.get(pos, LocalDateTime.class));
+    return TimestampData.fromLocalDateTime(DateTimeUtil.timestampFromMicros(ts));
   }
 
   @Override
@@ -164,23 +155,17 @@ public class StructRecordWrapper implements RowData {
 
   @Override
   public byte[] getBinary(int pos) {
-    Type.TypeID typeID = getType(pos).typeId();
-    switch (typeID) {
-      case FIXED: return record.get(pos, byte[].class);
-      case UUID: {
-        UUID uuid = record.get(pos, UUID.class);
-        ByteBuffer bb = ByteBuffer.allocate(16);
-        bb.putLong(uuid.getMostSignificantBits());
-        bb.putLong(uuid.getLeastSignificantBits());
-        return bb.array();
-      }
-      default: {
-        ByteBuffer buffer = record.get(pos, ByteBuffer.class);
-        int from = buffer.arrayOffset() + buffer.position();
-        int to = buffer.arrayOffset() + buffer.remaining();
-        return Arrays.copyOfRange(buffer.array(), from, to);
-      }
+    if (getType(pos).typeId() == Type.TypeID.UUID) {
+      UUID uuid = record.get(pos, UUID.class);
+      ByteBuffer bb = ByteBuffer.allocate(16);
+      bb.putLong(uuid.getMostSignificantBits());
+      bb.putLong(uuid.getLeastSignificantBits());
+      return bb.array();
     }
+    ByteBuffer buffer = record.get(pos, ByteBuffer.class);
+    int from = buffer.arrayOffset() + buffer.position();
+    int to = buffer.arrayOffset() + buffer.remaining();
+    return Arrays.copyOfRange(buffer.array(), from, to);
   }
 
   @Override

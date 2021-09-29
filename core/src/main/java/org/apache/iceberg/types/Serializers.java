@@ -138,7 +138,7 @@ public class Serializers {
             record.set(i, null);
           } else {
             byte[] fieldData = new byte[length];
-            int fieldDataSize = dis.read(fieldData);
+            int fieldDataSize = length > 0 ? dis.read(fieldData) : 0;
             Preconditions.checkState(length == fieldDataSize, "%s != %s", length, fieldDataSize);
             record.set(i, serializers[i].deserialize(fieldData));
           }

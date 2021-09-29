@@ -39,6 +39,7 @@ public class TestStructRecordWrapper extends RecordWrapperTest {
     int numRecords = 100;
     Iterable<Record> recordList = RandomGenericData.generate(schema, numRecords, 101L);
 
+    InternalRecordWrapper internalRecordWrapper = new InternalRecordWrapper(schema.asStruct());
     StructRecordWrapper structRecordWrapper = new StructRecordWrapper(schema.asStruct());
 
     Iterator<Record> records = recordList.iterator();
@@ -47,7 +48,7 @@ public class TestStructRecordWrapper extends RecordWrapperTest {
       Assert.assertTrue("Should have more records", records.hasNext());
 
       StructLike record = records.next();
-      RowData recordRowData = structRecordWrapper.wrap(record);
+      RowData recordRowData = structRecordWrapper.wrap(internalRecordWrapper.wrap(record));
 
       TestHelpers.assertRowData(schema.asStruct(), rowType, record, recordRowData);
     }
