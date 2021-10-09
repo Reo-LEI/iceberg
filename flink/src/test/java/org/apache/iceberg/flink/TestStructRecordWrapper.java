@@ -28,8 +28,7 @@ import org.apache.iceberg.StructLike;
 import org.apache.iceberg.data.InternalRecordWrapper;
 import org.apache.iceberg.data.RandomGenericData;
 import org.apache.iceberg.data.Record;
-import org.apache.iceberg.flink.data.RandomRowData;
-import org.apache.iceberg.util.StructLikeWrapper;
+
 import org.junit.Assert;
 
 public class TestStructRecordWrapper extends RecordWrapperTest {
