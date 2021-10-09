@@ -51,33 +51,33 @@ public class MetadataTableSource {
   public static class Builder {
     private StreamExecutionEnvironment env;
     private String tableName;
-    private TableOperations ops;
-    private MetadataTableType type;
+    private TableOperations tableOps;
+    private MetadataTableType metadataTableType;
     private int maxParallelism = Integer.MAX_VALUE;
 
-    public Builder env(StreamExecutionEnvironment env) {
-      this.env = env;
+    public Builder env(StreamExecutionEnvironment environment) {
+      this.env = environment;
       return this;
     }
 
-    public Builder tableName(String tableName) {
-      this.tableName = tableName;
+    public Builder tableName(String name) {
+      this.tableName = name;
       return this;
     }
 
-    public Builder ops(TableOperations ops) {
-      this.ops = ops;
+    public Builder tableOperations(TableOperations ops) {
+      this.tableOps = ops;
       return this;
     }
 
-    public Builder type(MetadataTableType type) {
-      this.type = type;
+    public Builder metadataTableType(MetadataTableType type) {
+      this.metadataTableType = type;
       return this;
     }
 
-    public Builder maxParallelism(int maxParallelism) {
-      Preconditions.checkArgument(maxParallelism > 0, "Invalid max parallelism %d", maxParallelism);
-      this.maxParallelism = maxParallelism;
+    public Builder maxParallelism(int parallelism) {
+      Preconditions.checkArgument(parallelism > 0, "Invalid max parallelism %d", parallelism);
+      this.maxParallelism = parallelism;
       return this;
     }
 
@@ -85,7 +85,8 @@ public class MetadataTableSource {
       Preconditions.checkNotNull(env, "StreamExecutionEnvironment should not be null");
       Preconditions.checkNotNull(tableName, "TableName should not be null");
 
-      Table metadataTable = MetadataTableUtils.createMetadataTableInstance(ops, tableName, type.name(), type);
+      Table metadataTable = MetadataTableUtils.createMetadataTableInstance(tableOps, tableName,
+          metadataTableType.name(), metadataTableType);
 
       Schema schema = metadataTable.schema();
       FileIO io = metadataTable.io();
@@ -104,11 +105,9 @@ public class MetadataTableSource {
   private static class MetadataTableMap extends RichFlatMapFunction<CombinedScanTask, RowData> {
 
     private final String name;
-    private final Schema schema;
     private final FileIO io;
     private final EncryptionManager encryptionManager;
-    private final String nameMapping;
-    private final boolean caseSensitive;
+    private final RowDataFileScanTaskReader rowDataReader;
 
     private MetadataTableMap(
         String name,
@@ -118,24 +117,22 @@ public class MetadataTableSource {
         String nameMapping,
         boolean caseSensitive) {
       this.name = name;
-      this.schema = schema;
       this.io = io;
       this.encryptionManager = encryptionManager;
-      this.nameMapping = nameMapping;
-      this.caseSensitive = caseSensitive;
+      this.rowDataReader = new RowDataFileScanTaskReader(schema, schema, nameMapping, caseSensitive);
     }
 
     @Override
     public void flatMap(CombinedScanTask task, Collector<RowData> out) throws Exception {
-      RowDataFileScanTaskReader reader = new RowDataFileScanTaskReader(schema, schema, nameMapping, caseSensitive);
 
-      try (DataIterator<RowData> iterator = new DataIterator<>(reader, task, io, encryptionManager)) {
+      try (DataIterator<RowData> iterator =
+               new DataIterator<>(rowDataReader, task, io, encryptionManager)) {
         while (iterator.hasNext()) {
           RowData rowData = iterator.next();
           out.collect(rowData);
         }
       } catch (Exception e) {
-        LOG.error("Failed to read metadata table: {}", name, e);
+        LOG.error("Failed to read metadata table: " + name);
         throw e;
       }
     }
