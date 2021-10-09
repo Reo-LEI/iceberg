@@ -163,7 +163,7 @@ public abstract class WritersBenchmark extends IcebergSourceBenchmark {
 
     TaskWriter<InternalRow> writer = new UnpartitionedWriter<>(
         unpartitionedSpec, fileFormat(), appenders,
-        fileFactory, io, TARGET_FILE_SIZE_IN_BYTES);
+        fileFactory, io, TARGET_FILE_SIZE_IN_BYTES, table().properties());
 
     try (TaskWriter<InternalRow> closableWriter = writer) {
       for (InternalRow row : rows) {
@@ -219,7 +219,7 @@ public abstract class WritersBenchmark extends IcebergSourceBenchmark {
     TaskWriter<InternalRow> writer = new SparkPartitionedWriter(
         partitionedSpec, fileFormat(), appenders,
         fileFactory, io, TARGET_FILE_SIZE_IN_BYTES,
-        writeSchema, sparkWriteType);
+        table().properties(), writeSchema, sparkWriteType);
 
     try (TaskWriter<InternalRow> closableWriter = writer) {
       for (InternalRow row : rows) {
@@ -275,7 +275,7 @@ public abstract class WritersBenchmark extends IcebergSourceBenchmark {
     TaskWriter<InternalRow> writer = new SparkPartitionedFanoutWriter(
         partitionedSpec, fileFormat(), appenders,
         fileFactory, io, TARGET_FILE_SIZE_IN_BYTES,
-        writeSchema, sparkWriteType);
+        table().properties(), writeSchema, sparkWriteType);
 
     try (TaskWriter<InternalRow> closableWriter = writer) {
       for (InternalRow row : rows) {

@@ -375,7 +375,7 @@ public abstract class BaseTaskWriter<T> implements TaskWriter<T> {
   }
 
   protected class RollingEqDeleteWriter extends BaseRollingWriter<EqualityDeleteWriter<T>> {
-    RollingEqDeleteWriter(StructLike partitionKey) {
+    public RollingEqDeleteWriter(StructLike partitionKey) {
       super(partitionKey);
     }
 

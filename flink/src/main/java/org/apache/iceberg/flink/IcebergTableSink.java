@@ -78,6 +78,7 @@ public class IcebergTableSink implements DynamicTableSink, SupportsPartitioning,
     tableProperties.forEach(config::setString);
 
     return (DataStreamSinkProvider) dataStream ->  {
+      // TODO remove this after flink upgrade to 1.13
       // For CDC case in FlinkSQL, change log will be rebalanced(default partition strategy) distributed to Filter opr
       // when set job default parallelism greater than 1. That will make change log data disorder and produce a wrong
       // result for iceberg(e.g. +U comes before -U). Here try to specific the Filter opr parallelism same as it's
@@ -92,7 +93,7 @@ public class IcebergTableSink implements DynamicTableSink, SupportsPartitioning,
           .equalityFieldColumns(equalityColumns)
           .uidPrefix(config.getString(SNK_UID_PREFIX))
           .overwrite(overwrite)
-          .build();
+          .append();
     };
   }
 

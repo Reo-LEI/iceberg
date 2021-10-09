@@ -45,7 +45,7 @@ public class RowDataWrapper implements StructLike {
     int size = rowType.getFieldCount();
 
     types = (LogicalType[]) Array.newInstance(LogicalType.class, size);
-    getters = (PositionalGetter[]) Array.newInstance(PositionalGetter.class, size);
+    getters = (PositionalGetter<?>[]) Array.newInstance(PositionalGetter.class, size);
 
     for (int i = 0; i < size; i++) {
       types[i] = rowType.getTypeAt(i);
