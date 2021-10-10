@@ -1,15 +1,20 @@
 /*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
  */
 
 package org.apache.iceberg.hadoop;
@@ -44,14 +49,14 @@ public class Util {
   private static final Map<String, FileSystem> CACHE = new ConcurrentHashMap<>();
 
   private static final String ANONYMOUS_HADOOP_USER = "Anonymous";
-  private static String DEFAULT_HADOOP_USER = ANONYMOUS_HADOOP_USER;
+  private static String defaultHadoopUser = ANONYMOUS_HADOOP_USER;
 
 
   private Util() {
   }
 
-  public static void dfaultHadoopUser(String userName) {
-    DEFAULT_HADOOP_USER = userName;
+  public static void defaultHadoopUser(String userName) {
+    defaultHadoopUser = userName;
   }
 
   private static boolean fsAuthEnable(String userName) {
@@ -60,7 +65,7 @@ public class Util {
 
   private static String loadHadoopUser(Configuration conf) {
     String user = System.getenv("HADOOP_USER_NAME");
-    if(user != null) {
+    if (user != null) {
       if (user.contains("@")) {
         user = user.split("@")[0];
       }
@@ -72,7 +77,7 @@ public class Util {
       return user;
     }
 
-    return DEFAULT_HADOOP_USER;
+    return defaultHadoopUser;
   }
 
   public static FileSystem getFs(Path path, Configuration conf) {
