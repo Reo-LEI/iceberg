@@ -39,7 +39,7 @@ import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList;
 
 public class IcebergTableSink implements DynamicTableSink, SupportsPartitioning, SupportsOverwrite {
 
-  private static final ConfigOption<String> SNK_UID_PREFIX =
+  public static final ConfigOption<String> SNK_UID_PREFIX =
       ConfigOptions.key("sink.uid.prefix")
           .stringType()
           .defaultValue(null)

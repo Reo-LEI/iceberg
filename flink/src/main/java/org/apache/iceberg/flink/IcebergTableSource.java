@@ -52,7 +52,7 @@ import org.apache.iceberg.relocated.com.google.common.collect.Lists;
 public class IcebergTableSource
     implements ScanTableSource, SupportsProjectionPushDown, SupportsFilterPushDown, SupportsLimitPushDown {
 
-  private static final ConfigOption<String> SRC_UID_PREFIX =
+  public static final ConfigOption<String> SRC_UID_PREFIX =
           ConfigOptions.key("source.uid.prefix")
                   .stringType()
                   .defaultValue(null)
