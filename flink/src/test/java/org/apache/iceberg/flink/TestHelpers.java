@@ -50,7 +50,6 @@ import org.apache.flink.types.Row;
 import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.StructLike;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.flink.data.RowDataUtil;
 import org.apache.iceberg.flink.source.FlinkInputFormat;
@@ -59,7 +58,6 @@ import org.apache.iceberg.relocated.com.google.common.collect.Lists;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.DateTimeUtil;
-import org.assertj.core.api.Assertions;
 import org.junit.Assert;
 
 public class TestHelpers {
@@ -117,11 +115,7 @@ public class TestHelpers {
     Assert.assertEquals(expected, results);
   }
 
-  public static void assertRowData(Schema schema, StructLike expected, RowData actual) {
-    assertRowData(schema.asStruct(), FlinkSchemaUtil.convert(schema), expected, actual);
-  }
-
-  public static void assertRowData(Types.StructType structType, LogicalType rowType, StructLike expectedRecord,
+  public static void assertRowData(Types.StructType structType, LogicalType rowType, Record expectedRecord,
                                    RowData actualRowData) {
     if (expectedRecord == null && actualRowData == null) {
       return;
@@ -136,15 +130,10 @@ public class TestHelpers {
     }
 
     for (int i = 0; i < types.size(); i += 1) {
+      Object expected = expectedRecord.get(i);
       LogicalType logicalType = ((RowType) rowType).getTypeAt(i);
-      Object expected = expectedRecord.get(i, Object.class);
-      // The RowData.createFieldGetter won't return null for the required field. But in the projection case, if we are
-      // projecting a nested required field from a optional struct, then we should give a null for the projected field
-      // if the outer struct value is null. So we need to check the nullable for actualRowData here. For more details
-      // please see issue #2738.
-      Object actual = actualRowData.isNullAt(i) ? null :
-          RowData.createFieldGetter(logicalType, i).getFieldOrNull(actualRowData);
-      assertEquals(types.get(i), logicalType, expected, actual);
+      assertEquals(types.get(i), logicalType, expected,
+          RowData.createFieldGetter(logicalType, i).getFieldOrNull(actualRowData));
     }
   }
 
@@ -174,44 +163,44 @@ public class TestHelpers {
         Assert.assertEquals("double value should be equal", expected, actual);
         break;
       case STRING:
-        Assertions.assertThat(expected).as("Should expect a CharSequence").isInstanceOf(CharSequence.class);
+        Assert.assertTrue("Should expect a CharSequence", expected instanceof CharSequence);
         Assert.assertEquals("string should be equal", String.valueOf(expected), actual.toString());
         break;
       case DATE:
-        Assertions.assertThat(expected).as("Should expect a Date").isInstanceOf(LocalDate.class);
+        Assert.assertTrue("Should expect a Date", expected instanceof LocalDate);
         LocalDate date = DateTimeUtil.dateFromDays((int) actual);
         Assert.assertEquals("date should be equal", expected, date);
         break;
       case TIME:
-        Assertions.assertThat(expected).as("Should expect a LocalTime").isInstanceOf(LocalTime.class);
+        Assert.assertTrue("Should expect a LocalTime", expected instanceof LocalTime);
         int milliseconds = (int) (((LocalTime) expected).toNanoOfDay() / 1000_000);
         Assert.assertEquals("time millis should be equal", milliseconds, actual);
         break;
       case TIMESTAMP:
         if (((Types.TimestampType) type).shouldAdjustToUTC()) {
-          Assertions.assertThat(expected).as("Should expect a OffsetDataTime").isInstanceOf(OffsetDateTime.class);
+          Assert.assertTrue("Should expect a OffsetDataTime", expected instanceof OffsetDateTime);
           OffsetDateTime ts = (OffsetDateTime) expected;
           Assert.assertEquals("OffsetDataTime should be equal", ts.toLocalDateTime(),
               ((TimestampData) actual).toLocalDateTime());
         } else {
-          Assertions.assertThat(expected).as("Should expect a LocalDataTime").isInstanceOf(LocalDateTime.class);
+          Assert.assertTrue("Should expect a LocalDataTime", expected instanceof LocalDateTime);
           LocalDateTime ts = (LocalDateTime) expected;
           Assert.assertEquals("LocalDataTime should be equal", ts,
               ((TimestampData) actual).toLocalDateTime());
         }
         break;
       case BINARY:
-        Assertions.assertThat(expected).as("Should expect a ByteBuffer").isInstanceOf(ByteBuffer.class);
+        Assert.assertTrue("Should expect a ByteBuffer", expected instanceof ByteBuffer);
         Assert.assertEquals("binary should be equal", expected, ByteBuffer.wrap((byte[]) actual));
         break;
       case DECIMAL:
-        Assertions.assertThat(expected).as("Should expect a BigDecimal").isInstanceOf(BigDecimal.class);
+        Assert.assertTrue("Should expect a BigDecimal", expected instanceof BigDecimal);
         BigDecimal bd = (BigDecimal) expected;
         Assert.assertEquals("decimal value should be equal", bd,
             ((DecimalData) actual).toBigDecimal());
         break;
       case LIST:
-        Assertions.assertThat(expected).as("Should expect a Collection").isInstanceOf(Collection.class);
+        Assert.assertTrue("Should expect a Collection", expected instanceof Collection);
         Collection<?> expectedArrayData = (Collection<?>) expected;
         ArrayData actualArrayData = (ArrayData) actual;
         LogicalType elementType = ((ArrayType) logicalType).getElementType();
@@ -219,20 +208,20 @@ public class TestHelpers {
         assertArrayValues(type.asListType().elementType(), elementType, expectedArrayData, actualArrayData);
         break;
       case MAP:
-        Assertions.assertThat(expected).as("Should expect a Map").isInstanceOf(Map.class);
+        Assert.assertTrue("Should expect a Map", expected instanceof Map);
         assertMapValues(type.asMapType(), logicalType, (Map<?, ?>) expected, (MapData) actual);
         break;
       case STRUCT:
-        Assertions.assertThat(expected).as("Should expect a Record").isInstanceOf(Record.class);
+        Assert.assertTrue("Should expect a Record", expected instanceof Record);
         assertRowData(type.asStructType(), logicalType, (Record) expected, (RowData) actual);
         break;
       case UUID:
-        Assertions.assertThat(expected).as("Should expect a UUID").isInstanceOf(UUID.class);
+        Assert.assertTrue("Should expect a UUID", expected instanceof UUID);
         Assert.assertEquals("UUID should be equal", expected.toString(),
             UUID.nameUUIDFromBytes((byte[]) actual).toString());
         break;
       case FIXED:
-        Assertions.assertThat(expected).as("Should expect byte[]").isInstanceOf(byte[].class);
+        Assert.assertTrue("Should expect byte[]", expected instanceof byte[]);
         Assert.assertArrayEquals("binary should be equal", (byte[]) expected, (byte[]) actual);
         break;
       default:

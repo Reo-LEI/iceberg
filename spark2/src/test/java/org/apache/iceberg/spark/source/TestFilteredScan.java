@@ -67,7 +67,6 @@ import org.apache.spark.sql.sources.v2.reader.SupportsPushDownFilters;
 import org.apache.spark.sql.types.IntegerType$;
 import org.apache.spark.sql.types.LongType$;
 import org.apache.spark.sql.types.StringType$;
-import org.assertj.core.api.Assertions;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
@@ -540,7 +539,7 @@ public class TestFilteredScan {
   }
 
   private void pushFilters(DataSourceReader reader, Filter... filters) {
-    Assertions.assertThat(reader).isInstanceOf(SupportsPushDownFilters.class);
+    Assert.assertTrue(reader instanceof SupportsPushDownFilters);
     SupportsPushDownFilters filterable = (SupportsPushDownFilters) reader;
     filterable.pushFilters(filters);
   }

@@ -527,11 +527,6 @@ class BaseTransaction implements Transaction {
     }
 
     @Override
-    public Map<Integer, Schema> schemas() {
-      return current.schemasById();
-    }
-
-    @Override
     public PartitionSpec spec() {
       return current.spec();
     }

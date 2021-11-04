@@ -23,9 +23,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import org.apache.flink.configuration.ConfigOption;
-import org.apache.flink.configuration.ConfigOptions;
-import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -51,12 +48,6 @@ import org.apache.iceberg.relocated.com.google.common.collect.Lists;
  */
 public class IcebergTableSource
     implements ScanTableSource, SupportsProjectionPushDown, SupportsFilterPushDown, SupportsLimitPushDown {
-
-  private static final ConfigOption<String> SRC_UID_PREFIX =
-          ConfigOptions.key("source.uid.prefix")
-                  .stringType()
-                  .defaultValue(null)
-                  .withDescription("Iceberg source operators uid prefix, default is null.");
 
   private int[] projectedFields;
   private long limit;
@@ -108,9 +99,6 @@ public class IcebergTableSource
   }
 
   private DataStream<RowData> createDataStream(StreamExecutionEnvironment execEnv) {
-    Configuration config = new Configuration();
-    properties.forEach(config::setString);
-
     return FlinkSource.forRowData()
         .env(execEnv)
         .tableLoader(loader)
@@ -119,7 +107,6 @@ public class IcebergTableSource
         .limit(limit)
         .filters(filters)
         .flinkConf(readableConfig)
-        .uidPrefix(config.getString(SRC_UID_PREFIX))
         .build();
   }
 

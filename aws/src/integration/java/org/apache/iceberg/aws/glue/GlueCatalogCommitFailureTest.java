@@ -76,11 +76,8 @@ public class GlueCatalogCommitFailureTest extends GlueTestBase {
     GlueTableOperations spyOps = Mockito.spy(ops);
     failCommitAndThrowException(spyOps, ConcurrentModificationException.builder().build());
 
-    AssertHelpers.assertThrowsWithCause("GlueCatalog should fail on concurrent modifications",
-        CommitFailedException.class,
-        "Glue detected concurrent update",
-        ConcurrentModificationException.class,
-        null,
+    AssertHelpers.assertThrows("GlueCatalog should fail on concurrent modifications",
+        ConcurrentModificationException.class, "Glue detected concurrent update",
         () -> spyOps.commit(metadataV2, metadataV1));
     Mockito.verify(spyOps, Mockito.times(0)).refresh();
 
@@ -204,8 +201,7 @@ public class GlueCatalogCommitFailureTest extends GlueTestBase {
       Map<String, String> mapProperties = i.getArgument(1, Map.class);
       realOps.persistGlueTable(
           i.getArgument(0, software.amazon.awssdk.services.glue.model.Table.class),
-          mapProperties,
-          i.getArgument(2, TableMetadata.class));
+          mapProperties);
 
       // new metadata location is stored in map property, and used for locking
       String newMetadataLocation = mapProperties.get(BaseMetastoreTableOperations.METADATA_LOCATION_PROP);
@@ -216,7 +212,7 @@ public class GlueCatalogCommitFailureTest extends GlueTestBase {
       table.refresh();
       table.updateSchema().addColumn("newCol", Types.IntegerType.get()).commit();
       throw new SdkBaseException("Datacenter on fire");
-    }).when(spyOperations).persistGlueTable(Matchers.any(), Matchers.anyMap(), Matchers.any());
+    }).when(spyOperations).persistGlueTable(Matchers.any(), Matchers.anyMap());
   }
 
   private Table setupTable() {
@@ -242,10 +238,9 @@ public class GlueCatalogCommitFailureTest extends GlueTestBase {
     Mockito.doAnswer(i -> {
       realOps.persistGlueTable(
           i.getArgument(0, software.amazon.awssdk.services.glue.model.Table.class),
-          i.getArgument(1, Map.class),
-          i.getArgument(2, TableMetadata.class));
+          i.getArgument(1, Map.class));
       throw new SdkBaseException("Datacenter on fire");
-    }).when(spyOps).persistGlueTable(Matchers.any(), Matchers.anyMap(), Matchers.any());
+    }).when(spyOps).persistGlueTable(Matchers.any(), Matchers.anyMap());
   }
 
   private void failCommitAndThrowException(GlueTableOperations spyOps) {
@@ -254,7 +249,7 @@ public class GlueCatalogCommitFailureTest extends GlueTestBase {
 
   private void failCommitAndThrowException(GlueTableOperations spyOps, Exception exceptionToThrow) {
     Mockito.doThrow(exceptionToThrow)
-        .when(spyOps).persistGlueTable(Matchers.any(), Matchers.anyMap(), Matchers.any());
+        .when(spyOps).persistGlueTable(Matchers.any(), Matchers.anyMap());
   }
 
   private void breakFallbackCatalogCommitCheck(GlueTableOperations spyOperations) {

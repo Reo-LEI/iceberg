@@ -30,7 +30,6 @@ import org.projectnessie.client.NessieClient;
 import org.projectnessie.client.http.HttpClientException;
 import org.projectnessie.error.NessieConflictException;
 import org.projectnessie.error.NessieNotFoundException;
-import org.projectnessie.model.Branch;
 import org.projectnessie.model.Contents;
 import org.projectnessie.model.ContentsKey;
 import org.projectnessie.model.IcebergTable;
@@ -81,7 +80,7 @@ public class NessieTableOperations extends BaseMetastoreTableOperations {
     }
     String metadataLocation = null;
     try {
-      Contents contents = client.getContentsApi().getContents(key, reference.getName(), reference.getHash());
+      Contents contents = client.getContentsApi().getContents(key, reference.getHash());
       this.table = contents.unwrap(IcebergTable.class)
           .orElseThrow(() ->
               new IllegalStateException("Cannot refresh iceberg table: " +
@@ -103,17 +102,10 @@ public class NessieTableOperations extends BaseMetastoreTableOperations {
 
     boolean delete = true;
     try {
-      ImmutableIcebergTable.Builder newTable = ImmutableIcebergTable.builder();
-      if (table != null) {
-        newTable.from(table);
-      }
-      newTable.metadataLocation(newMetadataLocation);
-
-      Operations op = ImmutableOperations.builder().addOperations(Operation.Put.of(key, newTable.build()))
+      IcebergTable newTable = ImmutableIcebergTable.builder().metadataLocation(newMetadataLocation).build();
+      Operations op = ImmutableOperations.builder().addOperations(Operation.Put.of(key, newTable))
           .commitMeta(NessieUtil.buildCommitMetadata("iceberg commit", catalogOptions)).build();
-      Branch branch = client.getTreeApi().commitMultipleOperations(reference.getAsBranch().getName(),
-          reference.getHash(), op);
-      reference.updateReference(branch);
+      client.getTreeApi().commitMultipleOperations(reference.getAsBranch().getName(), reference.getHash(), op);
 
       delete = false;
     } catch (NessieConflictException ex) {

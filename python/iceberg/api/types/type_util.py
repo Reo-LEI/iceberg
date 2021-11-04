@@ -24,7 +24,6 @@ from .types import (ListType,
                     MapType,
                     NestedField,
                     StructType)
-from ...exceptions import ValidationException
 
 MAX_PRECISION = list()
 REQUIRED_LENGTH = [-1 for item in range(40)]
@@ -122,8 +121,7 @@ def visit(arg, visitor): # noqa: ignore=C901
                 result = None
                 try:
                     result = visit(field.type, visitor)
-                except NotImplementedError:
-                    # will remove it after missing functions are implemented.
+                except RuntimeError:
                     pass
                 finally:
                     visitor.field_ids.pop()
@@ -135,8 +133,7 @@ def visit(arg, visitor): # noqa: ignore=C901
             visitor.field_ids.append(list_var.element_id)
             try:
                 element_result = visit(list_var.element_type, visitor)
-            except NotImplementedError:
-                # will remove it after missing functions are implemented.
+            except RuntimeError:
                 pass
             finally:
                 visitor.field_ids.pop()
@@ -355,12 +352,8 @@ class IndexByName(SchemaVisitor):
 
     def add_field(self, name, field_id):
         full_name = name
-        if self.field_names is not None and len(self.field_names) > 0:
-            full_name = IndexByName.DOT.join([IndexByName.DOT.join(self.field_names), name])
-
-        existing_field_id = self.name_to_id.get(full_name)
-        ValidationException.check(existing_field_id is None, "Invalid schema: multiple fields for name %s: %s and %s",
-                                  (full_name, existing_field_id, field_id))
+        if not self.field_names and len(self.field_names) > 0:
+            full_name = IndexByName.DOT.join([IndexByName.DOT.join(reversed(self.field_names)), name])
 
         self.name_to_id[full_name] = field_id
 

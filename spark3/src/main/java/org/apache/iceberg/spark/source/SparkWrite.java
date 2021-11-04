@@ -262,17 +262,10 @@ class SparkWrite {
   private class DynamicOverwrite extends BaseBatchWrite {
     @Override
     public void commit(WriterCommitMessage[] messages) {
-      Iterable<DataFile> files = files(messages);
-
-      if (!files.iterator().hasNext()) {
-        LOG.info("Dynamic overwrite is empty, skipping commit");
-        return;
-      }
-
       ReplacePartitions dynamicOverwrite = table.newReplacePartitions();
 
       int numFiles = 0;
-      for (DataFile file : files) {
+      for (DataFile file : files(messages)) {
         numFiles += 1;
         dynamicOverwrite.addFile(file);
       }
@@ -539,21 +532,20 @@ class SparkWrite {
     public DataWriter<InternalRow> createWriter(int partitionId, long taskId, long epochId) {
       Table table = tableBroadcast.value();
 
-      OutputFileFactory fileFactory = OutputFileFactory.builderFor(table, partitionId, taskId).format(format).build();
+      OutputFileFactory fileFactory = new OutputFileFactory(table, format, partitionId, taskId);
       SparkAppenderFactory appenderFactory = SparkAppenderFactory.builderFor(table, writeSchema, dsSchema).build();
 
       PartitionSpec spec = table.spec();
       FileIO io = table.io();
-      Map<String, String> properties = table.properties();
 
       if (spec.isUnpartitioned()) {
-        return new Unpartitioned3Writer(spec, format, appenderFactory, fileFactory, io, targetFileSize, properties);
+        return new Unpartitioned3Writer(spec, format, appenderFactory, fileFactory, io, targetFileSize);
       } else if (partitionedFanoutEnabled) {
         return new PartitionedFanout3Writer(
-            spec, format, appenderFactory, fileFactory, io, targetFileSize, properties, writeSchema, dsSchema);
+            spec, format, appenderFactory, fileFactory, io, targetFileSize, writeSchema, dsSchema);
       } else {
         return new Partitioned3Writer(
-            spec, format, appenderFactory, fileFactory, io, targetFileSize, properties, writeSchema, dsSchema);
+            spec, format, appenderFactory, fileFactory, io, targetFileSize, writeSchema, dsSchema);
       }
     }
   }
@@ -561,9 +553,8 @@ class SparkWrite {
   private static class Unpartitioned3Writer extends UnpartitionedWriter<InternalRow>
       implements DataWriter<InternalRow> {
     Unpartitioned3Writer(PartitionSpec spec, FileFormat format, SparkAppenderFactory appenderFactory,
-                         OutputFileFactory fileFactory, FileIO io, long targetFileSize,
-                         Map<String, String> properties) {
-      super(spec, format, appenderFactory, fileFactory, io, targetFileSize, properties);
+                         OutputFileFactory fileFactory, FileIO io, long targetFileSize) {
+      super(spec, format, appenderFactory, fileFactory, io, targetFileSize);
     }
 
     @Override
@@ -577,8 +568,8 @@ class SparkWrite {
   private static class Partitioned3Writer extends SparkPartitionedWriter implements DataWriter<InternalRow> {
     Partitioned3Writer(PartitionSpec spec, FileFormat format, SparkAppenderFactory appenderFactory,
                        OutputFileFactory fileFactory, FileIO io, long targetFileSize,
-                       Map<String, String> properties, Schema schema, StructType sparkSchema) {
-      super(spec, format, appenderFactory, fileFactory, io, targetFileSize, properties, schema, sparkSchema);
+                       Schema schema, StructType sparkSchema) {
+      super(spec, format, appenderFactory, fileFactory, io, targetFileSize, schema, sparkSchema);
     }
 
     @Override
@@ -593,8 +584,8 @@ class SparkWrite {
       implements DataWriter<InternalRow> {
     PartitionedFanout3Writer(PartitionSpec spec, FileFormat format, SparkAppenderFactory appenderFactory,
                              OutputFileFactory fileFactory, FileIO io, long targetFileSize,
-                             Map<String, String> properties, Schema schema, StructType sparkSchema) {
-      super(spec, format, appenderFactory, fileFactory, io, targetFileSize, properties, schema, sparkSchema);
+                             Schema schema, StructType sparkSchema) {
+      super(spec, format, appenderFactory, fileFactory, io, targetFileSize, schema, sparkSchema);
     }
 
     @Override

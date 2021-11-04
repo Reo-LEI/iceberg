@@ -27,7 +27,6 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData.Record;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
-import org.assertj.core.api.Assertions;
 import org.junit.Assert;
 
 import static org.apache.iceberg.avro.AvroSchemaUtil.toOption;
@@ -130,18 +129,18 @@ class AvroTestHelpers {
         Assert.assertEquals("Primitive value should be equal to expected", expected, actual);
         break;
       case STRUCT:
-        Assertions.assertThat(expected).as("Expected should be a Record").isInstanceOf(Record.class);
-        Assertions.assertThat(actual).as("Actual should be a Record").isInstanceOf(Record.class);
+        Assert.assertTrue("Expected should be a Record", expected instanceof Record);
+        Assert.assertTrue("Actual should be a Record", actual instanceof Record);
         assertEquals(type.asStructType(), (Record) expected, (Record) actual);
         break;
       case LIST:
-        Assertions.assertThat(expected).as("Expected should be a List").isInstanceOf(List.class);
-        Assertions.assertThat(actual).as("Actual should be a List").isInstanceOf(List.class);
+        Assert.assertTrue("Expected should be a List", expected instanceof List);
+        Assert.assertTrue("Actual should be a List", actual instanceof List);
         assertEquals(type.asListType(), (List) expected, (List) actual);
         break;
       case MAP:
-        Assertions.assertThat(expected).as("Expected should be a Map").isInstanceOf(Map.class);
-        Assertions.assertThat(actual).as("Actual should be a Map").isInstanceOf(Map.class);
+        Assert.assertTrue("Expected should be a Map", expected instanceof Map);
+        Assert.assertTrue("Actual should be a Map", actual instanceof Map);
         assertEquals(type.asMapType(), (Map<?, ?>) expected, (Map<?, ?>) actual);
         break;
       default:

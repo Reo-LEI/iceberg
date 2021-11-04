@@ -19,7 +19,6 @@
 
 package org.apache.iceberg.spark.source;
 
-import java.util.Map;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionKey;
 import org.apache.iceberg.PartitionSpec;
@@ -38,8 +37,8 @@ public class SparkPartitionedWriter extends PartitionedWriter<InternalRow> {
   public SparkPartitionedWriter(PartitionSpec spec, FileFormat format,
                                 FileAppenderFactory<InternalRow> appenderFactory,
                                 OutputFileFactory fileFactory, FileIO io, long targetFileSize,
-                                Map<String, String> properties, Schema schema, StructType sparkSchema) {
-    super(spec, format, appenderFactory, fileFactory, io, targetFileSize, properties);
+                                Schema schema, StructType sparkSchema) {
+    super(spec, format, appenderFactory, fileFactory, io, targetFileSize);
     this.partitionKey = new PartitionKey(spec, schema);
     this.internalRowWrapper = new InternalRowWrapper(sparkSchema);
   }

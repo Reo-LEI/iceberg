@@ -111,7 +111,7 @@ class GlueTableOperations extends BaseMetastoreTableOperations {
       Table glueTable = getGlueTable();
       checkMetadataLocation(glueTable, base);
       Map<String, String> properties = prepareProperties(glueTable, newMetadataLocation);
-      persistGlueTable(glueTable, properties, metadata);
+      persistGlueTable(glueTable, properties);
       commitStatus = CommitStatus.SUCCESS;
     } catch (ConcurrentModificationException e) {
       throw new CommitFailedException(e, "Cannot commit %s because Glue detected concurrent update", tableName());
@@ -179,7 +179,7 @@ class GlueTableOperations extends BaseMetastoreTableOperations {
   }
 
   @VisibleForTesting
-  void persistGlueTable(Table glueTable, Map<String, String> parameters, TableMetadata metadata) {
+  void persistGlueTable(Table glueTable, Map<String, String> parameters) {
     if (glueTable != null) {
       LOG.debug("Committing existing Glue table: {}", tableName());
       glue.updateTable(UpdateTableRequest.builder()
@@ -187,7 +187,6 @@ class GlueTableOperations extends BaseMetastoreTableOperations {
           .databaseName(databaseName)
           .skipArchive(awsProperties.glueCatalogSkipArchive())
           .tableInput(TableInput.builder()
-              .applyMutation(builder -> IcebergToGlueConverter.setTableInputInformation(builder, metadata))
               .name(tableName)
               .tableType(GLUE_EXTERNAL_TABLE_TYPE)
               .parameters(parameters)
@@ -199,7 +198,6 @@ class GlueTableOperations extends BaseMetastoreTableOperations {
           .catalogId(awsProperties.glueCatalogId())
           .databaseName(databaseName)
           .tableInput(TableInput.builder()
-              .applyMutation(builder -> IcebergToGlueConverter.setTableInputInformation(builder, metadata))
               .name(tableName)
               .tableType(GLUE_EXTERNAL_TABLE_TYPE)
               .parameters(parameters)

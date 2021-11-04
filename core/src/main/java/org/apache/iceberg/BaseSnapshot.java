@@ -43,7 +43,6 @@ class BaseSnapshot implements Snapshot {
   private final String manifestListLocation;
   private final String operation;
   private final Map<String, String> summary;
-  private final Integer schemaId;
 
   // lazily initialized
   private transient List<ManifestFile> allManifests = null;
@@ -57,10 +56,9 @@ class BaseSnapshot implements Snapshot {
    */
   BaseSnapshot(FileIO io,
                long snapshotId,
-               Integer schemaId,
                String... manifestFiles) {
     this(io, snapshotId, null, System.currentTimeMillis(), null, null,
-        schemaId, Lists.transform(Arrays.asList(manifestFiles),
+        Lists.transform(Arrays.asList(manifestFiles),
             path -> new GenericManifestFile(io.newInputFile(path), 0)));
   }
 
@@ -71,7 +69,6 @@ class BaseSnapshot implements Snapshot {
                long timestampMillis,
                String operation,
                Map<String, String> summary,
-               Integer schemaId,
                String manifestList) {
     this.io = io;
     this.sequenceNumber = sequenceNumber;
@@ -80,7 +77,6 @@ class BaseSnapshot implements Snapshot {
     this.timestampMillis = timestampMillis;
     this.operation = operation;
     this.summary = summary;
-    this.schemaId = schemaId;
     this.manifestListLocation = manifestList;
   }
 
@@ -90,9 +86,8 @@ class BaseSnapshot implements Snapshot {
                long timestampMillis,
                String operation,
                Map<String, String> summary,
-               Integer schemaId,
                List<ManifestFile> dataManifests) {
-    this(io, INITIAL_SEQUENCE_NUMBER, snapshotId, parentId, timestampMillis, operation, summary, schemaId, null);
+    this(io, INITIAL_SEQUENCE_NUMBER, snapshotId, parentId, timestampMillis, operation, summary, null);
     this.allManifests = dataManifests;
   }
 
@@ -124,11 +119,6 @@ class BaseSnapshot implements Snapshot {
   @Override
   public Map<String, String> summary() {
     return summary;
-  }
-
-  @Override
-  public Integer schemaId() {
-    return schemaId;
   }
 
   private void cacheManifests() {
@@ -232,8 +222,7 @@ class BaseSnapshot implements Snapshot {
       return this.snapshotId == other.snapshotId() &&
           Objects.equal(this.parentId, other.parentId()) &&
           this.sequenceNumber == other.sequenceNumber() &&
-          this.timestampMillis == other.timestampMillis() &&
-          Objects.equal(this.schemaId, other.schemaId());
+          this.timestampMillis == other.timestampMillis();
     }
 
     return false;
@@ -245,8 +234,7 @@ class BaseSnapshot implements Snapshot {
       this.snapshotId,
       this.parentId,
       this.sequenceNumber,
-      this.timestampMillis,
-      this.schemaId
+      this.timestampMillis
     );
   }
 
@@ -258,7 +246,6 @@ class BaseSnapshot implements Snapshot {
         .add("operation", operation)
         .add("summary", summary)
         .add("manifest-list", manifestListLocation)
-        .add("schema-id", schemaId)
         .toString();
   }
 }

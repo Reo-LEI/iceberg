@@ -24,9 +24,7 @@ import java.nio.ByteBuffer;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.Collection;
@@ -44,7 +42,6 @@ import org.apache.spark.sql.catalyst.util.ArrayData;
 import org.apache.spark.sql.catalyst.util.MapData;
 import org.apache.spark.sql.types.Decimal;
 import org.apache.spark.unsafe.types.UTF8String;
-import org.assertj.core.api.Assertions;
 import org.junit.Assert;
 import scala.collection.Seq;
 
@@ -120,66 +117,60 @@ public class GenericsHelpers {
         Assert.assertEquals("Primitive value should be equal to expected", expected, actual);
         break;
       case DATE:
-        Assertions.assertThat(expected).as("Should expect a LocalDate").isInstanceOf(LocalDate.class);
-        Assertions.assertThat(actual).as("Should be a Date").isInstanceOf(Date.class);
+        Assert.assertTrue("Should expect a LocalDate", expected instanceof LocalDate);
+        Assert.assertTrue("Should be a Date", actual instanceof Date);
         Assert.assertEquals("ISO-8601 date should be equal", expected.toString(), actual.toString());
         break;
       case TIMESTAMP:
-        Assertions.assertThat(actual).as("Should be a Timestamp").isInstanceOf(Timestamp.class);
+        Assert.assertTrue("Should expect an OffsetDateTime", expected instanceof OffsetDateTime);
+        Assert.assertTrue("Should be a Timestamp", actual instanceof Timestamp);
         Timestamp ts = (Timestamp) actual;
         // milliseconds from nanos has already been added by getTime
         OffsetDateTime actualTs = EPOCH.plusNanos(
             (ts.getTime() * 1_000_000) + (ts.getNanos() % 1_000_000));
-        Types.TimestampType timestampType = (Types.TimestampType) type;
-        if (timestampType.shouldAdjustToUTC()) {
-          Assertions.assertThat(expected).as("Should expect an OffsetDateTime").isInstanceOf(OffsetDateTime.class);
-          Assert.assertEquals("Timestamp should be equal", expected, actualTs);
-        } else {
-          Assertions.assertThat(expected).as("Should expect an LocalDateTime").isInstanceOf(LocalDateTime.class);
-          Assert.assertEquals("Timestamp should be equal", expected, actualTs.toLocalDateTime());
-        }
+        Assert.assertEquals("Timestamp should be equal", expected, actualTs);
         break;
       case STRING:
-        Assertions.assertThat(actual).as("Should be a String").isInstanceOf(String.class);
+        Assert.assertTrue("Should be a String", actual instanceof String);
         Assert.assertEquals("Strings should be equal", String.valueOf(expected), actual);
         break;
       case UUID:
-        Assertions.assertThat(expected).as("Should expect a UUID").isInstanceOf(UUID.class);
-        Assertions.assertThat(actual).as("Should be a String").isInstanceOf(String.class);
+        Assert.assertTrue("Should expect a UUID", expected instanceof UUID);
+        Assert.assertTrue("Should be a String", actual instanceof String);
         Assert.assertEquals("UUID string representation should match",
             expected.toString(), actual);
         break;
       case FIXED:
-        Assertions.assertThat(expected).as("Should expect a byte[]").isInstanceOf(byte[].class);
-        Assertions.assertThat(actual).as("Should be a byte[]").isInstanceOf(byte[].class);
+        Assert.assertTrue("Should expect a byte[]", expected instanceof byte[]);
+        Assert.assertTrue("Should be a byte[]", actual instanceof byte[]);
         Assert.assertArrayEquals("Bytes should match",
             (byte[]) expected, (byte[]) actual);
         break;
       case BINARY:
-        Assertions.assertThat(expected).as("Should expect a ByteBuffer").isInstanceOf(ByteBuffer.class);
-        Assertions.assertThat(actual).as("Should be a byte[]").isInstanceOf(byte[].class);
+        Assert.assertTrue("Should expect a ByteBuffer", expected instanceof ByteBuffer);
+        Assert.assertTrue("Should be a byte[]", actual instanceof byte[]);
         Assert.assertArrayEquals("Bytes should match",
             ((ByteBuffer) expected).array(), (byte[]) actual);
         break;
       case DECIMAL:
-        Assertions.assertThat(expected).as("Should expect a BigDecimal").isInstanceOf(BigDecimal.class);
-        Assertions.assertThat(actual).as("Should be a BigDecimal").isInstanceOf(BigDecimal.class);
+        Assert.assertTrue("Should expect a BigDecimal", expected instanceof BigDecimal);
+        Assert.assertTrue("Should be a BigDecimal", actual instanceof BigDecimal);
         Assert.assertEquals("BigDecimals should be equal", expected, actual);
         break;
       case STRUCT:
-        Assertions.assertThat(expected).as("Should expect a Record").isInstanceOf(Record.class);
-        Assertions.assertThat(actual).as("Should be a Row").isInstanceOf(Row.class);
+        Assert.assertTrue("Should expect a Record", expected instanceof Record);
+        Assert.assertTrue("Should be a Row", actual instanceof Row);
         assertEqualsSafe(type.asNestedType().asStructType(), (Record) expected, (Row) actual);
         break;
       case LIST:
-        Assertions.assertThat(expected).as("Should expect a Collection").isInstanceOf(Collection.class);
-        Assertions.assertThat(actual).as("Should be a Seq").isInstanceOf(Seq.class);
+        Assert.assertTrue("Should expect a Collection", expected instanceof Collection);
+        Assert.assertTrue("Should be a Seq", actual instanceof Seq);
         List<?> asList = seqAsJavaListConverter((Seq<?>) actual).asJava();
         assertEqualsSafe(type.asNestedType().asListType(), (Collection<?>) expected, asList);
         break;
       case MAP:
-        Assertions.assertThat(expected).as("Should expect a Collection").isInstanceOf(Map.class);
-        Assertions.assertThat(actual).as("Should be a Map").isInstanceOf(scala.collection.Map.class);
+        Assert.assertTrue("Should expect a Collection", expected instanceof Map);
+        Assert.assertTrue("Should be a Map", actual instanceof scala.collection.Map);
         Map<String, ?> asMap = mapAsJavaMapConverter(
             (scala.collection.Map<String, ?>) actual).asJava();
         assertEqualsSafe(type.asNestedType().asMapType(), (Map<?, ?>) expected, asMap);
@@ -245,62 +236,55 @@ public class GenericsHelpers {
         Assert.assertEquals("Primitive value should be equal to expected", expected, actual);
         break;
       case DATE:
-        Assertions.assertThat(expected).as("Should expect a LocalDate").isInstanceOf(LocalDate.class);
+        Assert.assertTrue("Should expect a LocalDate", expected instanceof LocalDate);
         int expectedDays = (int) ChronoUnit.DAYS.between(EPOCH_DAY, (LocalDate) expected);
         Assert.assertEquals("Primitive value should be equal to expected", expectedDays, actual);
         break;
       case TIMESTAMP:
-        Types.TimestampType timestampType = (Types.TimestampType) type;
-        if (timestampType.shouldAdjustToUTC()) {
-          Assertions.assertThat(expected).as("Should expect an OffsetDateTime").isInstanceOf(OffsetDateTime.class);
-          long expectedMicros = ChronoUnit.MICROS.between(EPOCH, (OffsetDateTime) expected);
-          Assert.assertEquals("Primitive value should be equal to expected", expectedMicros, actual);
-        } else {
-          Assertions.assertThat(expected).as("Should expect an LocalDateTime").isInstanceOf(LocalDateTime.class);
-          long expectedMicros = ChronoUnit.MICROS.between(EPOCH, ((LocalDateTime) expected).atZone(ZoneId.of("UTC")));
-          Assert.assertEquals("Primitive value should be equal to expected", expectedMicros, actual);
-        }
+        Assert.assertTrue("Should expect an OffsetDateTime", expected instanceof OffsetDateTime);
+        long expectedMicros = ChronoUnit.MICROS.between(EPOCH, (OffsetDateTime) expected);
+        Assert.assertEquals("Primitive value should be equal to expected", expectedMicros, actual);
         break;
       case STRING:
-        Assertions.assertThat(actual).as("Should be a UTF8String").isInstanceOf(UTF8String.class);
+        Assert.assertTrue("Should be a UTF8String", actual instanceof UTF8String);
         Assert.assertEquals("Strings should be equal", expected, actual.toString());
         break;
       case UUID:
-        Assertions.assertThat(expected).as("Should expect a UUID").isInstanceOf(UUID.class);
-        Assertions.assertThat(actual).as("Should be a UTF8String").isInstanceOf(UTF8String.class);
+        Assert.assertTrue("Should expect a UUID", expected instanceof UUID);
+        Assert.assertTrue("Should be a UTF8String", actual instanceof UTF8String);
         Assert.assertEquals("UUID string representation should match",
             expected.toString(), actual.toString());
         break;
       case FIXED:
-        Assertions.assertThat(expected).as("Should expect a byte[]").isInstanceOf(byte[].class);
-        Assertions.assertThat(actual).as("Should be a byte[]").isInstanceOf(byte[].class);
+        Assert.assertTrue("Should expect a byte[]", expected instanceof byte[]);
+        Assert.assertTrue("Should be a byte[]", actual instanceof byte[]);
         Assert.assertArrayEquals("Bytes should match", (byte[]) expected, (byte[]) actual);
         break;
       case BINARY:
-        Assertions.assertThat(expected).as("Should expect a ByteBuffer").isInstanceOf(ByteBuffer.class);
-        Assertions.assertThat(actual).as("Should be a byte[]").isInstanceOf(byte[].class);
+        Assert.assertTrue("Should expect a ByteBuffer", expected instanceof ByteBuffer);
+        Assert.assertTrue("Should be a byte[]", actual instanceof byte[]);
         Assert.assertArrayEquals("Bytes should match",
             ((ByteBuffer) expected).array(), (byte[]) actual);
         break;
       case DECIMAL:
-        Assertions.assertThat(expected).as("Should expect a BigDecimal").isInstanceOf(BigDecimal.class);
-        Assertions.assertThat(actual).as("Should be a Decimal").isInstanceOf(Decimal.class);
+        Assert.assertTrue("Should expect a BigDecimal", expected instanceof BigDecimal);
+        Assert.assertTrue("Should be a Decimal", actual instanceof Decimal);
         Assert.assertEquals("BigDecimals should be equal",
             expected, ((Decimal) actual).toJavaBigDecimal());
         break;
       case STRUCT:
-        Assertions.assertThat(expected).as("Should expect a Record").isInstanceOf(Record.class);
-        Assertions.assertThat(actual).as("Should be an InternalRow").isInstanceOf(InternalRow.class);
+        Assert.assertTrue("Should expect a Record", expected instanceof Record);
+        Assert.assertTrue("Should be an InternalRow", actual instanceof InternalRow);
         assertEqualsUnsafe(type.asNestedType().asStructType(), (Record) expected, (InternalRow) actual);
         break;
       case LIST:
-        Assertions.assertThat(expected).as("Should expect a Collection").isInstanceOf(Collection.class);
-        Assertions.assertThat(actual).as("Should be an ArrayData").isInstanceOf(ArrayData.class);
+        Assert.assertTrue("Should expect a Collection", expected instanceof Collection);
+        Assert.assertTrue("Should be an ArrayData", actual instanceof ArrayData);
         assertEqualsUnsafe(type.asNestedType().asListType(), (Collection<?>) expected, (ArrayData) actual);
         break;
       case MAP:
-        Assertions.assertThat(expected).as("Should expect a Map").isInstanceOf(Map.class);
-        Assertions.assertThat(actual).as("Should be an ArrayBasedMapData").isInstanceOf(MapData.class);
+        Assert.assertTrue("Should expect a Map", expected instanceof Map);
+        Assert.assertTrue("Should be an ArrayBasedMapData", actual instanceof MapData);
         assertEqualsUnsafe(type.asNestedType().asMapType(), (Map<?, ?>) expected, (MapData) actual);
         break;
       case TIME:

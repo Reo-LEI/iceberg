@@ -184,17 +184,10 @@ class Writer implements DataSourceWriter {
   }
 
   private void replacePartitions(WriterCommitMessage[] messages) {
-    Iterable<DataFile> files = files(messages);
-
-    if (!files.iterator().hasNext()) {
-      LOG.info("Dyanmic overwrite is empty, skipping commit");
-      return;
-    }
-
     ReplacePartitions dynamicOverwrite = table.newReplacePartitions();
 
     int numFiles = 0;
-    for (DataFile file : files) {
+    for (DataFile file : files(messages)) {
       numFiles += 1;
       dynamicOverwrite.addFile(file);
     }
@@ -270,21 +263,20 @@ class Writer implements DataSourceWriter {
     public DataWriter<InternalRow> createDataWriter(int partitionId, long taskId, long epochId) {
       Table table = tableBroadcast.value();
 
-      OutputFileFactory fileFactory = OutputFileFactory.builderFor(table, partitionId, taskId).format(format).build();
+      OutputFileFactory fileFactory = new OutputFileFactory(table, format, partitionId, taskId);
       SparkAppenderFactory appenderFactory = SparkAppenderFactory.builderFor(table, writeSchema, dsSchema).build();
 
       PartitionSpec spec = table.spec();
       FileIO io = table.io();
-      Map<String, String> properties = table.properties();
 
       if (spec.isUnpartitioned()) {
-        return new Unpartitioned24Writer(spec, format, appenderFactory, fileFactory, io, targetFileSize, properties);
+        return new Unpartitioned24Writer(spec, format, appenderFactory, fileFactory, io, targetFileSize);
       } else if (partitionedFanoutEnabled) {
         return new PartitionedFanout24Writer(spec, format, appenderFactory, fileFactory, io, targetFileSize,
-            properties, writeSchema, dsSchema);
+            writeSchema, dsSchema);
       } else {
         return new Partitioned24Writer(spec, format, appenderFactory, fileFactory, io, targetFileSize,
-            properties, writeSchema, dsSchema);
+            writeSchema, dsSchema);
       }
     }
   }
@@ -292,9 +284,8 @@ class Writer implements DataSourceWriter {
   private static class Unpartitioned24Writer extends UnpartitionedWriter<InternalRow>
       implements DataWriter<InternalRow> {
     Unpartitioned24Writer(PartitionSpec spec, FileFormat format, SparkAppenderFactory appenderFactory,
-                          OutputFileFactory fileFactory, FileIO fileIo, long targetFileSize,
-                          Map<String, String> properties) {
-      super(spec, format, appenderFactory, fileFactory, fileIo, targetFileSize, properties);
+                          OutputFileFactory fileFactory, FileIO fileIo, long targetFileSize) {
+      super(spec, format, appenderFactory, fileFactory, fileIo, targetFileSize);
     }
 
     @Override
@@ -309,8 +300,8 @@ class Writer implements DataSourceWriter {
 
     Partitioned24Writer(PartitionSpec spec, FileFormat format, SparkAppenderFactory appenderFactory,
                         OutputFileFactory fileFactory, FileIO fileIo, long targetFileSize,
-                        Map<String, String> properties, Schema schema, StructType sparkSchema) {
-      super(spec, format, appenderFactory, fileFactory, fileIo, targetFileSize, properties, schema, sparkSchema);
+                        Schema schema, StructType sparkSchema) {
+      super(spec, format, appenderFactory, fileFactory, fileIo, targetFileSize, schema, sparkSchema);
     }
 
     @Override
@@ -327,8 +318,9 @@ class Writer implements DataSourceWriter {
     PartitionedFanout24Writer(PartitionSpec spec, FileFormat format,
                               SparkAppenderFactory appenderFactory,
                               OutputFileFactory fileFactory, FileIO fileIo, long targetFileSize,
-                              Map<String, String> properties, Schema schema, StructType sparkSchema) {
-      super(spec, format, appenderFactory, fileFactory, fileIo, targetFileSize, properties, schema, sparkSchema);
+                              Schema schema, StructType sparkSchema) {
+      super(spec, format, appenderFactory, fileFactory, fileIo, targetFileSize, schema,
+          sparkSchema);
     }
 
     @Override

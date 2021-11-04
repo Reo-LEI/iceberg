@@ -35,7 +35,6 @@ import org.apache.iceberg.hadoop.HadoopTables;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.relocated.com.google.common.collect.Maps;
 import org.apache.iceberg.types.Types;
-import org.assertj.core.api.Assertions;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -108,7 +107,7 @@ public class TestCatalogTableLoader extends FlinkTestBase {
 
   private static void validateHadoopConf(Table table) {
     FileIO io = table.io();
-    Assertions.assertThat(io).as("FileIO should be a HadoopFileIO").isInstanceOf(HadoopFileIO.class);
+    Assert.assertTrue("FileIO should be a HadoopFileIO", io instanceof HadoopFileIO);
     HadoopFileIO hadoopIO = (HadoopFileIO) io;
     Assert.assertEquals("my_value", hadoopIO.conf().get("my_key"));
   }

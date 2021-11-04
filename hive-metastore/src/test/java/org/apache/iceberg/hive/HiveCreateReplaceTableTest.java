@@ -155,12 +155,7 @@ public class HiveCreateReplaceTableTest extends HiveMetastoreTest {
     txn.commitTransaction();
 
     Table table = catalog.loadTable(TABLE_IDENTIFIER);
-    PartitionSpec v1Expected = PartitionSpec.builderFor(table.schema())
-        .alwaysNull("id", "id")
-        .withSpecId(1)
-        .build();
-    Assert.assertEquals("Table should have a spec with one void field",
-        v1Expected, table.spec());
+    Assert.assertEquals("Partition spec should be unpartitioned", 0, table.spec().fields().size());
   }
 
   @Test
@@ -238,12 +233,7 @@ public class HiveCreateReplaceTableTest extends HiveMetastoreTest {
     txn.commitTransaction();
 
     Table table = catalog.loadTable(TABLE_IDENTIFIER);
-    PartitionSpec v1Expected = PartitionSpec.builderFor(table.schema())
-        .alwaysNull("id", "id")
-        .withSpecId(1)
-        .build();
-    Assert.assertEquals("Table should have a spec with one void field",
-        v1Expected, table.spec());
+    Assert.assertEquals("Partition spec should be unpartitioned", 0, table.spec().fields().size());
   }
 
   @Test

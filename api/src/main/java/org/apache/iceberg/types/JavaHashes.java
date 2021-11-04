@@ -81,10 +81,6 @@ public class JavaHashes {
 
     @Override
     public int hash(StructLike struct) {
-      if (struct == null) {
-        return 0;
-      }
-
       int result = 97;
       int len = hashes.length;
       result = 41 * result + len;
@@ -104,10 +100,6 @@ public class JavaHashes {
 
     @Override
     public int hash(List<?> list) {
-      if (list == null) {
-        return 0;
-      }
-
       int result = 17;
       int len = list.size();
       result = 37 * result + len;

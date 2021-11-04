@@ -236,7 +236,7 @@ public class HiveCatalog extends BaseMetastoreCatalog implements SupportsNamespa
         !namespace.isEmpty(),
         "Cannot create namespace with invalid name: %s", namespace);
     Preconditions.checkArgument(isValidateNamespace(namespace),
-        "Cannot support multi part namespace in Hive Metastore: %s", namespace);
+        "Cannot support multi part namespace in Hive MetaStore: %s", namespace);
 
     try {
       clients.run(client -> {
@@ -251,12 +251,12 @@ public class HiveCatalog extends BaseMetastoreCatalog implements SupportsNamespa
             namespace);
 
     } catch (TException e) {
-      throw new RuntimeException("Failed to create namespace " + namespace + " in Hive Metastore", e);
+      throw new RuntimeException("Failed to create namespace " + namespace + " in Hive MataStore", e);
 
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new RuntimeException(
-          "Interrupted in call to createDatabase(name) " + namespace + " in Hive Metastore", e);
+          "Interrupted in call to createDatabase(name) " + namespace + " in Hive MataStore", e);
     }
   }
 
@@ -278,12 +278,12 @@ public class HiveCatalog extends BaseMetastoreCatalog implements SupportsNamespa
       return namespaces;
 
     } catch (TException e) {
-      throw new RuntimeException("Failed to list all namespace: " + namespace + " in Hive Metastore",  e);
+      throw new RuntimeException("Failed to list all namespace: " + namespace + " in Hive MataStore",  e);
 
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new RuntimeException(
-          "Interrupted in call to getAllDatabases() " + namespace + " in Hive Metastore", e);
+          "Interrupted in call to getAllDatabases() " + namespace + " in Hive MataStore", e);
     }
   }
 
@@ -312,12 +312,12 @@ public class HiveCatalog extends BaseMetastoreCatalog implements SupportsNamespa
       return false;
 
     } catch (TException e) {
-      throw new RuntimeException("Failed to drop namespace " + namespace + " in Hive Metastore", e);
+      throw new RuntimeException("Failed to drop namespace " + namespace + " in Hive MataStore", e);
 
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new RuntimeException(
-          "Interrupted in call to drop dropDatabase(name) " + namespace + " in Hive Metastore", e);
+          "Interrupted in call to drop dropDatabase(name) " + namespace + " in Hive MataStore", e);
     }
   }
 
@@ -363,11 +363,11 @@ public class HiveCatalog extends BaseMetastoreCatalog implements SupportsNamespa
 
     } catch (TException e) {
       throw new RuntimeException(
-          "Failed to list namespace under namespace: " + namespace + " in Hive Metastore", e);
+          "Failed to list namespace under namespace: " + namespace + " in Hive MataStore", e);
 
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
-      throw new RuntimeException("Interrupted in call to getDatabase(name) " + namespace + " in Hive Metastore", e);
+      throw new RuntimeException("Interrupted in call to getDatabase(name) " + namespace + " in Hive MataStore", e);
     }
   }
 
@@ -387,12 +387,12 @@ public class HiveCatalog extends BaseMetastoreCatalog implements SupportsNamespa
       throw new NoSuchNamespaceException(e, "Namespace does not exist: %s", namespace);
 
     } catch (TException e) {
-      throw new RuntimeException("Failed to list namespace under namespace: " + namespace + " in Hive Metastore", e);
+      throw new RuntimeException("Failed to list namespace under namespace: " + namespace + " in Hive MataStore", e);
 
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new RuntimeException(
-          "Interrupted in call to getDatabase(name) " + namespace + " in Hive Metastore", e);
+          "Interrupted in call to getDatabase(name) " + namespace + " in Hive MataStore", e);
     }
   }
 
@@ -512,7 +512,7 @@ public class HiveCatalog extends BaseMetastoreCatalog implements SupportsNamespa
   public String toString() {
     return MoreObjects.toStringHelper(this)
         .add("name", name)
-        .add("uri", this.conf == null ? "" : this.conf.get(HiveConf.ConfVars.METASTOREURIS.varname))
+        .add("uri", this.conf.get(HiveConf.ConfVars.METASTOREURIS.varname))
         .toString();
   }
 

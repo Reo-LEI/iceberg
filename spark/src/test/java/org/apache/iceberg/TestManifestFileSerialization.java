@@ -41,7 +41,6 @@ import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.types.Types;
 import org.apache.spark.SparkConf;
 import org.apache.spark.serializer.KryoSerializer;
-import org.assertj.core.api.Assertions;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
@@ -116,7 +115,7 @@ public class TestManifestFileSerialization {
     try (Input in = new Input(new FileInputStream(data))) {
       for (int i = 0; i < 3; i += 1) {
         Object obj = kryo.readClassAndObject(in);
-        Assertions.assertThat(obj).as("Should be a ManifestFile").isInstanceOf(ManifestFile.class);
+        Assert.assertTrue("Should be a ManifestFile", obj instanceof ManifestFile);
         checkManifestFile(manifest, (ManifestFile) obj);
       }
     }
@@ -137,7 +136,7 @@ public class TestManifestFileSerialization {
     try (ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
       for (int i = 0; i < 3; i += 1) {
         Object obj = in.readObject();
-        Assertions.assertThat(obj).as("Should be a ManifestFile").isInstanceOf(ManifestFile.class);
+        Assert.assertTrue("Should be a ManifestFile", obj instanceof ManifestFile);
         checkManifestFile(manifest, (ManifestFile) obj);
       }
     }

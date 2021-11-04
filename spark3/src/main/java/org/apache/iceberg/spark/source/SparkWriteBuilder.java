@@ -51,7 +51,6 @@ class SparkWriteBuilder implements WriteBuilder, SupportsDynamicOverwrite, Suppo
   private final StructType dsSchema;
   private final CaseInsensitiveStringMap options;
   private final String overwriteMode;
-  private final boolean canHandleTimestampWithoutZone;
   private boolean overwriteDynamic = false;
   private boolean overwriteByFilter = false;
   private Expression overwriteExpr = null;
@@ -67,7 +66,6 @@ class SparkWriteBuilder implements WriteBuilder, SupportsDynamicOverwrite, Suppo
     this.options = info.options();
     this.overwriteMode = options.containsKey("overwrite-mode") ?
         options.get("overwrite-mode").toLowerCase(Locale.ROOT) : null;
-    this.canHandleTimestampWithoutZone = SparkUtil.canHandleTimestampWithoutZone(options, spark.conf());
   }
 
   public WriteBuilder overwriteFiles(Scan scan, IsolationLevel writeIsolationLevel) {
@@ -105,9 +103,6 @@ class SparkWriteBuilder implements WriteBuilder, SupportsDynamicOverwrite, Suppo
   @Override
   public BatchWrite buildForBatch() {
     // Validate
-    Preconditions.checkArgument(canHandleTimestampWithoutZone || !SparkUtil.hasTimestampWithoutZone(table.schema()),
-            SparkUtil.TIMESTAMP_WITHOUT_TIMEZONE_ERROR);
-
     Schema writeSchema = SparkSchemaUtil.convert(table.schema(), dsSchema);
     TypeUtil.validateWriteSchema(table.schema(), writeSchema,
         checkNullability(spark, options), checkOrdering(spark, options));

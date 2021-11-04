@@ -36,14 +36,10 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.hadoop.HadoopInputFile;
 import org.apache.iceberg.hadoop.Util;
-import org.apache.iceberg.relocated.com.google.common.base.Preconditions;
 import org.apache.iceberg.spark.Spark3Util;
 import org.apache.iceberg.spark.SparkSchemaUtil;
-import org.apache.iceberg.spark.SparkUtil;
 import org.apache.iceberg.util.PropertyUtil;
 import org.apache.iceberg.util.TableScanUtil;
-import org.apache.iceberg.util.Tasks;
-import org.apache.iceberg.util.ThreadPools;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.sql.RuntimeConfig;
@@ -73,7 +69,6 @@ abstract class SparkBatchScan implements Scan, Batch, SupportsReportStatistics {
   private final Schema expectedSchema;
   private final List<Expression> filterExpressions;
   private final int batchSize;
-  private final boolean readTimestampWithoutZone;
   private final CaseInsensitiveStringMap options;
 
   // lazy variables
@@ -89,9 +84,6 @@ abstract class SparkBatchScan implements Scan, Batch, SupportsReportStatistics {
     this.localityPreferred = Spark3Util.isLocalityEnabled(table.io(), table.location(), options);
     this.batchSize = Spark3Util.batchSize(table.properties(), options);
     this.options = options;
-
-    RuntimeConfig sessionConf = SparkSession.active().conf();
-    this.readTimestampWithoutZone = SparkUtil.canHandleTimestampWithoutZone(options, sessionConf);
   }
 
   protected Table table() {
@@ -126,8 +118,6 @@ abstract class SparkBatchScan implements Scan, Batch, SupportsReportStatistics {
   @Override
   public StructType readSchema() {
     if (readSchema == null) {
-      Preconditions.checkArgument(readTimestampWithoutZone || !SparkUtil.hasTimestampWithoutZone(expectedSchema),
-              SparkUtil.TIMESTAMP_WITHOUT_TIMEZONE_ERROR);
       this.readSchema = SparkSchemaUtil.convert(expectedSchema);
     }
     return readSchema;
@@ -142,13 +132,11 @@ abstract class SparkBatchScan implements Scan, Batch, SupportsReportStatistics {
 
     List<CombinedScanTask> scanTasks = tasks();
     InputPartition[] readTasks = new InputPartition[scanTasks.size()];
-
-    Tasks.range(readTasks.length)
-        .stopOnFailure()
-        .executeWith(localityPreferred ? ThreadPools.getWorkerPool() : null)
-        .run(index -> readTasks[index] = new ReadTask(
-            scanTasks.get(index), tableBroadcast, expectedSchemaString,
-            caseSensitive, localityPreferred));
+    for (int i = 0; i < scanTasks.size(); i++) {
+      readTasks[i] = new ReadTask(
+          scanTasks.get(i), tableBroadcast, expectedSchemaString,
+          caseSensitive, localityPreferred);
+    }
 
     return readTasks;
   }
@@ -207,20 +195,22 @@ abstract class SparkBatchScan implements Scan, Batch, SupportsReportStatistics {
       LOG.debug("using table metadata to estimate table statistics");
       long totalRecords = PropertyUtil.propertyAsLong(table.currentSnapshot().summary(),
           SnapshotSummary.TOTAL_RECORDS_PROP, Long.MAX_VALUE);
+      Schema projectedSchema = expectedSchema != null ? expectedSchema : table.schema();
       return new Stats(
-          SparkSchemaUtil.estimateSize(readSchema(), totalRecords),
+          SparkSchemaUtil.estimateSize(SparkSchemaUtil.convert(projectedSchema), totalRecords),
           totalRecords);
     }
 
+    long sizeInBytes = 0L;
     long numRows = 0L;
 
     for (CombinedScanTask task : tasks()) {
       for (FileScanTask file : task.files()) {
+        sizeInBytes += file.length();
         numRows += file.file().recordCount();
       }
     }
 
-    long sizeInBytes = SparkSchemaUtil.estimateSize(readSchema(), numRows);
     return new Stats(sizeInBytes, numRows);
   }
 

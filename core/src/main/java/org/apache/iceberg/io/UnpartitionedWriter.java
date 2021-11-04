@@ -20,7 +20,6 @@
 package org.apache.iceberg.io;
 
 import java.io.IOException;
-import java.util.Map;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
 
@@ -29,9 +28,8 @@ public class UnpartitionedWriter<T> extends BaseTaskWriter<T> {
   private final RollingFileWriter currentWriter;
 
   public UnpartitionedWriter(PartitionSpec spec, FileFormat format, FileAppenderFactory<T> appenderFactory,
-                             OutputFileFactory fileFactory, FileIO io, long targetFileSize,
-                             Map<String, String> properties) {
-    super(spec, format, appenderFactory, fileFactory, io, targetFileSize, properties);
+                             OutputFileFactory fileFactory, FileIO io, long targetFileSize) {
+    super(spec, format, appenderFactory, fileFactory, io, targetFileSize);
     currentWriter = new RollingFileWriter(null);
   }
 

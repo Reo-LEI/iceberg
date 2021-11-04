@@ -77,8 +77,7 @@ public abstract class BasePageIterator {
   protected abstract void initDefinitionLevelsReader(DataPageV1 dataPageV1, ColumnDescriptor descriptor,
                                                      ByteBufferInputStream in, int count) throws IOException;
 
-  protected abstract void initDefinitionLevelsReader(DataPageV2 dataPageV2, ColumnDescriptor descriptor)
-          throws IOException;
+  protected abstract void initDefinitionLevelsReader(DataPageV2 dataPageV2, ColumnDescriptor descriptor);
 
   public int currentPageCount() {
     return triplesCount;

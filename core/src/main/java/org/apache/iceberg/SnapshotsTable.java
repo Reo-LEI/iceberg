@@ -60,9 +60,8 @@ public class SnapshotsTable extends BaseMetadataTable {
     TableOperations ops = operations();
     return StaticDataTask.of(
         ops.io().newInputFile(ops.current().metadataFileLocation()),
-        schema(), scan.schema(), ops.current().snapshots(),
-        SnapshotsTable::snapshotToRow
-    );
+        ops.current().snapshots(),
+        SnapshotsTable::snapshotToRow);
   }
 
   @Override

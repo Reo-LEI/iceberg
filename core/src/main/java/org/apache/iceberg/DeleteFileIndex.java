@@ -312,7 +312,6 @@ class DeleteFileIndex {
   static class Builder {
     private final FileIO io;
     private final Set<ManifestFile> deleteManifests;
-    private long minSequenceNumber = 0L;
     private Map<Integer, PartitionSpec> specsById = null;
     private Expression dataFilter = Expressions.alwaysTrue();
     private Expression partitionFilter = Expressions.alwaysTrue();
@@ -322,11 +321,6 @@ class DeleteFileIndex {
     Builder(FileIO io, Set<ManifestFile> deleteManifests) {
       this.io = io;
       this.deleteManifests = Sets.newHashSet(deleteManifests);
-    }
-
-    Builder afterSequenceNumber(long seq) {
-      this.minSequenceNumber = seq;
-      return this;
     }
 
     Builder specsById(Map<Integer, PartitionSpec> newSpecsById) {
@@ -363,10 +357,8 @@ class DeleteFileIndex {
           .run(deleteFile -> {
             try (CloseableIterable<ManifestEntry<DeleteFile>> reader = deleteFile) {
               for (ManifestEntry<DeleteFile> entry : reader) {
-                if (entry.sequenceNumber() > minSequenceNumber) {
-                  // copy with stats for better filtering against data file stats
-                  deleteEntries.add(entry.copy());
-                }
+                // copy with stats for better filtering against data file stats
+                deleteEntries.add(entry.copy());
               }
             } catch (IOException e) {
               throw new RuntimeIOException(e, "Failed to close");

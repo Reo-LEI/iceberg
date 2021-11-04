@@ -51,6 +51,7 @@ import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.metastore.api.hive_metastoreConstants;
 import org.apache.iceberg.BaseMetastoreTableOperations;
+import org.apache.iceberg.CatalogUtil;
 import org.apache.iceberg.ClientPool;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SnapshotSummary;
@@ -62,6 +63,7 @@ import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.exceptions.CommitStateUnknownException;
 import org.apache.iceberg.exceptions.NoSuchIcebergTableException;
 import org.apache.iceberg.exceptions.NoSuchTableException;
+import org.apache.iceberg.exceptions.ValidationException;
 import org.apache.iceberg.hadoop.ConfigProperties;
 import org.apache.iceberg.hadoop.HadoopFileIO;
 import org.apache.iceberg.io.FileIO;
@@ -124,17 +126,24 @@ public class HiveTableOperations extends BaseMetastoreTableOperations {
     requestRefresh(); // ensure table metadata is up to date
 
     String proxyUserName = tableProps.get(ConfigProperties.ICEBERG_PROXY_USER);
+    String proxyUserToken = tableProps.get(ConfigProperties.ICEBERG_PROXY_TOKEN);
 
     // use system default user and no need to proxy
-    if (proxyUserName == null || proxyUserName.isEmpty()) {
+    if (proxyUserName == null && proxyUserToken == null) {
       return;
+    }
+
+    // check proxy config
+    if (proxyUserName == null || proxyUserName.isEmpty() || proxyUserToken == null || proxyUserToken.isEmpty()) {
+      throw new ValidationException("Table %s contain invalid proxy user: [%s, %s]", tbl, proxyUserName, proxyUserToken);
     }
 
     // reload fileIO by proxy user
     Configuration mergedConf = new Configuration(hadoopFileIO.getConf());
     mergedConf.set(ConfigProperties.ICEBERG_PROXY_USER, proxyUserName);
+    mergedConf.set(ConfigProperties.ICEBERG_PROXY_TOKEN, proxyUserToken);
     hadoopFileIO.setConf(mergedConf);
-    LOG.info("Table {} enable proxy user: {}", tbl, proxyUserName);
+    LOG.info("Table {} enable proxy user: [{}, {}]", tbl, proxyUserName, proxyUserToken);
   }
 
   /**

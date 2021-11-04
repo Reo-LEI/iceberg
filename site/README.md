@@ -52,9 +52,7 @@ To see changes in Javadoc, run:
 After site changes are committed, you can publish the site with this command:
 
 ```
-./gradlew deploySite
+mkdocs gh-deploy
 ```
 
-This assumes that the Apache remote is named `apache` and will push to the
-`asf-site` branch. You can specify the name of a different remote by appending
-`-Premote.name=<remote-name>` to the `./gradlew deploySite` command.
+This assumes that the Apache remote is named `apache` and will push to the `asf-site` branch. To use a different remote add `-r <remote-name>`.

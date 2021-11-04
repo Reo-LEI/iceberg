@@ -126,13 +126,4 @@ public interface Snapshot extends Serializable {
    * @return the location of the manifest list for this Snapshot
    */
   String manifestListLocation();
-
-  /**
-   * Return the id of the schema used when this snapshot was created, or null if this information is not available.
-   *
-   * @return schema id associated with this snapshot
-   */
-  default Integer schemaId() {
-    return null;
-  }
 }

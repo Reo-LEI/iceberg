@@ -32,7 +32,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileFormat;
-import org.apache.iceberg.SerializableTable;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.data.Record;
@@ -237,9 +236,10 @@ public class TestTaskWriters {
   }
 
   private TaskWriter<RowData> createTaskWriter(long targetFileSize) {
-    TaskWriterFactory<RowData> taskWriterFactory = new RowDataTaskWriterFactory(
-        SerializableTable.copyOf(table), (RowType) SimpleDataUtil.FLINK_SCHEMA.toRowDataType().getLogicalType(),
-        targetFileSize, format, table.properties(), null, false);
+    TaskWriterFactory<RowData> taskWriterFactory = new RowDataTaskWriterFactory(table.schema(),
+        (RowType) SimpleDataUtil.FLINK_SCHEMA.toRowDataType().getLogicalType(), table.spec(),
+        table.locationProvider(), table.io(), table.encryption(),
+        targetFileSize, format, table.properties(), null);
     taskWriterFactory.initialize(1, 1);
     return taskWriterFactory.create();
   }

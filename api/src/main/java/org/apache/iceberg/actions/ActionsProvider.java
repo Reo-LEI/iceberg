@@ -41,10 +41,10 @@ public interface ActionsProvider {
   }
 
   /**
-   * Instantiates an action to delete orphan files.
+   * Instantiates an action to remove orphan files.
    */
-  default DeleteOrphanFiles deleteOrphanFiles(Table table) {
-    throw new UnsupportedOperationException(this.getClass().getName() + " does not implement deleteOrphanFiles");
+  default RemoveOrphanFiles removeOrphanFiles(Table table) {
+    throw new UnsupportedOperationException(this.getClass().getName() + " does not implement removeOrphanFiles");
   }
 
   /**
@@ -69,9 +69,9 @@ public interface ActionsProvider {
   }
 
   /**
-   * Instantiates an action to delete all the files reachable from given metadata location.
+   * Instantiates an action to remove all the files reachable from given metadata location.
    */
-  default DeleteReachableFiles deleteReachableFiles(String metadataLocation) {
-    throw new UnsupportedOperationException(this.getClass().getName() + " does not implement deleteReachableFiles");
+  default RemoveReachableFiles removeReachableFiles(String metadataLocation) {
+    throw new UnsupportedOperationException(this.getClass().getName() + " does not implement removeReachableFiles");
   }
 }

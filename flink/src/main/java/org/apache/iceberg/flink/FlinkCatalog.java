@@ -69,6 +69,7 @@ import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.AlreadyExistsException;
 import org.apache.iceberg.exceptions.NamespaceNotEmptyException;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
+import org.apache.iceberg.flink.util.FlinkCompatibilityUtil;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.relocated.com.google.common.base.Preconditions;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
@@ -276,6 +277,7 @@ public class FlinkCatalog extends AbstractCatalog {
         if (!removals.isEmpty()) {
           asNamespaceCatalog.removeProperties(namespace, removals);
         }
+
       } catch (org.apache.iceberg.exceptions.NoSuchNamespaceException e) {
         if (!ignoreIfNotExists) {
           throw new DatabaseNotExistException(getName(), name, e);
@@ -358,18 +360,7 @@ public class FlinkCatalog extends AbstractCatalog {
   @Override
   public void createTable(ObjectPath tablePath, CatalogBaseTable table, boolean ignoreIfExists)
       throws CatalogException, TableAlreadyExistException {
-    if (Objects.equals(table.getOptions().get("connector"), FlinkDynamicTableFactory.FACTORY_IDENTIFIER)) {
-      throw new IllegalArgumentException("Cannot create the table with 'connector'='iceberg' table property in " +
-          "an iceberg catalog, Please create table with 'connector'='iceberg' property in a non-iceberg catalog or " +
-          "create table without 'connector'='iceberg' related properties in an iceberg table.");
-    }
-
-    createIcebergTable(tablePath, table, ignoreIfExists);
-  }
-
-  void createIcebergTable(ObjectPath tablePath, CatalogBaseTable table, boolean ignoreIfExists)
-      throws CatalogException, TableAlreadyExistException {
-    // validateFlinkTable(table);
+    validateFlinkTable(table);
 
     Schema icebergSchema = FlinkSchemaUtil.convert(table.getSchema());
     PartitionSpec spec = toPartitionSpec(((CatalogTable) table).getPartitionKeys(), icebergSchema);
@@ -401,7 +392,7 @@ public class FlinkCatalog extends AbstractCatalog {
   @Override
   public void alterTable(ObjectPath tablePath, CatalogBaseTable newTable, boolean ignoreIfNotExists)
       throws CatalogException, TableNotExistException {
-    // validateFlinkTable(newTable);
+    validateFlinkTable(newTable);
 
     Table icebergTable;
     try {
@@ -463,6 +454,21 @@ public class FlinkCatalog extends AbstractCatalog {
     commitChanges(icebergTable, setLocation, setSnapshotId, pickSnapshotId, setProperties);
   }
 
+  private static void validateFlinkTable(CatalogBaseTable table) {
+    Preconditions.checkArgument(table instanceof CatalogTable, "The Table should be a CatalogTable.");
+
+    TableSchema schema = table.getSchema();
+    schema.getTableColumns().forEach(column -> {
+      if (!FlinkCompatibilityUtil.isPhysicalColumn(column)) {
+        throw new UnsupportedOperationException("Creating table with computed columns is not supported yet.");
+      }
+    });
+
+    if (!schema.getWatermarkSpecs().isEmpty()) {
+      throw new UnsupportedOperationException("Creating table with watermark specs is not supported yet.");
+    }
+  }
+
   private static PartitionSpec toPartitionSpec(List<String> partitionKeys, Schema icebergSchema) {
     PartitionSpec.Builder builder = PartitionSpec.builderFor(icebergSchema);
     partitionKeys.forEach(builder::identity);
@@ -478,19 +484,17 @@ public class FlinkCatalog extends AbstractCatalog {
         // Not created by Flink SQL.
         // For compatibility with iceberg tables, return empty.
         // TODO modify this after Flink support partition transform.
-        return Lists.newArrayList();
+        return Collections.emptyList();
       }
     }
     return partitionKeys;
   }
 
-  private static void commitChanges(
-      Table table, String setLocation, String setSnapshotId,
-      String pickSnapshotId, Map<String, String> setProperties) {
+  private static void commitChanges(Table table, String setLocation, String setSnapshotId,
+                                    String pickSnapshotId, Map<String, String> setProperties) {
     // don't allow setting the snapshot and picking a commit at the same time because order is ambiguous and choosing
     // one order leads to different results
-    Preconditions.checkArgument(
-        setSnapshotId == null || pickSnapshotId == null,
+    Preconditions.checkArgument(setSnapshotId == null || pickSnapshotId == null,
         "Cannot set the current snapshot ID and cherry-pick snapshot changes");
 
     if (setSnapshotId != null) {
@@ -566,8 +570,7 @@ public class FlinkCatalog extends AbstractCatalog {
   }
 
   @Override
-  public void createPartition(
-      ObjectPath tablePath, CatalogPartitionSpec partitionSpec, CatalogPartition partition,
+  public void createPartition(ObjectPath tablePath, CatalogPartitionSpec partitionSpec, CatalogPartition partition,
       boolean ignoreIfExists) throws CatalogException {
     throw new UnsupportedOperationException();
   }
@@ -579,8 +582,7 @@ public class FlinkCatalog extends AbstractCatalog {
   }
 
   @Override
-  public void alterPartition(
-      ObjectPath tablePath, CatalogPartitionSpec partitionSpec, CatalogPartition newPartition,
+  public void alterPartition(ObjectPath tablePath, CatalogPartitionSpec partitionSpec, CatalogPartition newPartition,
       boolean ignoreIfNotExists) throws CatalogException {
     throw new UnsupportedOperationException();
   }
@@ -619,32 +621,26 @@ public class FlinkCatalog extends AbstractCatalog {
   }
 
   @Override
-  public void alterTableStatistics(
-      ObjectPath tablePath, CatalogTableStatistics tableStatistics,
+  public void alterTableStatistics(ObjectPath tablePath, CatalogTableStatistics tableStatistics,
       boolean ignoreIfNotExists) throws CatalogException {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public void alterTableColumnStatistics(
-      ObjectPath tablePath, CatalogColumnStatistics columnStatistics,
+  public void alterTableColumnStatistics(ObjectPath tablePath, CatalogColumnStatistics columnStatistics,
       boolean ignoreIfNotExists) throws CatalogException {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public void alterPartitionStatistics(
-      ObjectPath tablePath, CatalogPartitionSpec partitionSpec,
-      CatalogTableStatistics partitionStatistics, boolean ignoreIfNotExists)
-      throws CatalogException {
+  public void alterPartitionStatistics(ObjectPath tablePath, CatalogPartitionSpec partitionSpec,
+      CatalogTableStatistics partitionStatistics, boolean ignoreIfNotExists) throws CatalogException {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public void alterPartitionColumnStatistics(
-      ObjectPath tablePath, CatalogPartitionSpec partitionSpec,
-      CatalogColumnStatistics columnStatistics, boolean ignoreIfNotExists)
-      throws CatalogException {
+  public void alterPartitionColumnStatistics(ObjectPath tablePath, CatalogPartitionSpec partitionSpec,
+      CatalogColumnStatistics columnStatistics, boolean ignoreIfNotExists) throws CatalogException {
     throw new UnsupportedOperationException();
   }
 

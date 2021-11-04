@@ -32,10 +32,6 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.sql.SparkSession;
 
-/**
- * @deprecated since 0.12.0, will be removed in 0.13.0; use {@link RewriteDataFilesAction} instead.
- */
-@Deprecated
 public class RewriteDataFilesAction
     extends BaseRewriteDataFilesAction<RewriteDataFilesAction> {
 
@@ -44,7 +40,7 @@ public class RewriteDataFilesAction
 
   RewriteDataFilesAction(SparkSession spark, Table table) {
     super(table);
-    this.sparkContext = JavaSparkContext.fromSparkContext(spark.sparkContext());
+    this.sparkContext = new JavaSparkContext(spark.sparkContext());
   }
 
   @Override

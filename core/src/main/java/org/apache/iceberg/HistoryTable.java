@@ -68,9 +68,8 @@ public class HistoryTable extends BaseMetadataTable {
     TableOperations ops = operations();
     return StaticDataTask.of(
         ops.io().newInputFile(ops.current().metadataFileLocation()),
-        schema(), scan.schema(), ops.current().snapshotLog(),
-        convertHistoryEntryFunc(table())
-    );
+        ops.current().snapshotLog(),
+        convertHistoryEntryFunc(table()));
   }
 
   private class HistoryScan extends StaticTableScan {

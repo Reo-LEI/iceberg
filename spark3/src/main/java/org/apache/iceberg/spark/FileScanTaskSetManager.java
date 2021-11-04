@@ -21,8 +21,6 @@ package org.apache.iceberg.spark;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.HasTableOperations;
 import org.apache.iceberg.Table;
@@ -60,19 +58,9 @@ public class FileScanTaskSetManager {
     return tasksMap.remove(id);
   }
 
-  public Set<String> fetchSetIDs(Table table) {
-    return tasksMap.keySet().stream()
-        .filter(e -> e.first().equals(tableUUID(table)))
-        .map(Pair::second)
-        .collect(Collectors.toSet());
-  }
-
-  private String tableUUID(Table table) {
-    TableOperations ops = ((HasTableOperations) table).operations();
-    return ops.current().uuid();
-  }
-
   private Pair<String, String> toID(Table table, String setID) {
-    return Pair.of(tableUUID(table), setID);
+    TableOperations ops = ((HasTableOperations) table).operations();
+    String tableUUID = ops.current().uuid();
+    return Pair.of(tableUUID, setID);
   }
 }

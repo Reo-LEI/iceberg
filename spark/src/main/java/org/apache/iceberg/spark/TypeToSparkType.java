@@ -104,7 +104,12 @@ class TypeToSparkType extends TypeUtil.SchemaVisitor<DataType> {
         throw new UnsupportedOperationException(
             "Spark does not support time fields");
       case TIMESTAMP:
-        return TimestampType$.MODULE$;
+        Types.TimestampType timestamp = (Types.TimestampType) primitive;
+        if (timestamp.shouldAdjustToUTC()) {
+          return TimestampType$.MODULE$;
+        }
+        throw new UnsupportedOperationException(
+            "Spark does not support timestamp without time zone fields");
       case STRING:
         return StringType$.MODULE$;
       case UUID:

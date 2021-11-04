@@ -92,7 +92,8 @@ public abstract class TestAppenderFactory<T> extends TableTestBase {
       this.table = create(SCHEMA, PartitionSpec.unpartitioned());
     }
     this.partition = createPartitionKey();
-    this.fileFactory = OutputFileFactory.builderFor(table, 1, 1).format(format).build();
+    this.fileFactory = new OutputFileFactory(table.spec(), format, table.locationProvider(), table.io(),
+        table.encryption(), 1, 1);
 
     table.updateProperties()
         .defaultFormat(format)

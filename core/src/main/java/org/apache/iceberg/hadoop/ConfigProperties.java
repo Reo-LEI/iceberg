@@ -28,6 +28,8 @@ public class ConfigProperties {
 
   public static final String HDFS_AUTH_ENABLE = "hdfs.auth.enable";
   public static final String HDFS_AUTH_USER = "hadoop.user.name";
+  public static final String HDFS_AUTH_TOKEN = "hadoop.user.token";
 
   public static final String ICEBERG_PROXY_USER = "iceberg.proxy.user.name";
+  public static final String ICEBERG_PROXY_TOKEN = "iceberg.proxy.user.token";
 }

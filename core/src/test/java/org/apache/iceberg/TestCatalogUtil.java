@@ -32,7 +32,6 @@ import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.io.OutputFile;
 import org.apache.iceberg.relocated.com.google.common.collect.Maps;
-import org.assertj.core.api.Assertions;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -45,7 +44,7 @@ public class TestCatalogUtil {
     Configuration hadoopConf = new Configuration();
     String name = "custom";
     Catalog catalog = CatalogUtil.loadCatalog(TestCatalog.class.getName(), name, options, hadoopConf);
-    Assertions.assertThat(catalog).isInstanceOf(TestCatalog.class);
+    Assert.assertTrue(catalog instanceof TestCatalog);
     Assert.assertEquals(name, ((TestCatalog) catalog).catalogName);
     Assert.assertEquals(options, ((TestCatalog) catalog).flinkOptions);
   }
@@ -58,7 +57,7 @@ public class TestCatalogUtil {
     hadoopConf.set("key", "val");
     String name = "custom";
     Catalog catalog = CatalogUtil.loadCatalog(TestCatalogConfigurable.class.getName(), name, options, hadoopConf);
-    Assertions.assertThat(catalog).isInstanceOf(TestCatalogConfigurable.class);
+    Assert.assertTrue(catalog instanceof TestCatalogConfigurable);
     Assert.assertEquals(name, ((TestCatalogConfigurable) catalog).catalogName);
     Assert.assertEquals(options, ((TestCatalogConfigurable) catalog).flinkOptions);
     Assert.assertEquals(hadoopConf, ((TestCatalogConfigurable) catalog).configuration);
@@ -121,7 +120,7 @@ public class TestCatalogUtil {
     Map<String, String> properties = Maps.newHashMap();
     properties.put("key", "val");
     FileIO fileIO = CatalogUtil.loadFileIO(TestFileIONoArg.class.getName(), properties, null);
-    Assertions.assertThat(fileIO).isInstanceOf(TestFileIONoArg.class);
+    Assert.assertTrue(fileIO instanceof TestFileIONoArg);
     Assert.assertEquals(properties, ((TestFileIONoArg) fileIO).map);
   }
 
@@ -130,7 +129,7 @@ public class TestCatalogUtil {
     Configuration configuration = new Configuration();
     configuration.set("key", "val");
     FileIO fileIO = CatalogUtil.loadFileIO(HadoopFileIO.class.getName(), Maps.newHashMap(), configuration);
-    Assertions.assertThat(fileIO).isInstanceOf(HadoopFileIO.class);
+    Assert.assertTrue(fileIO instanceof HadoopFileIO);
     Assert.assertEquals("val", ((HadoopFileIO) fileIO).conf().get("key"));
   }
 
@@ -139,7 +138,7 @@ public class TestCatalogUtil {
     Configuration configuration = new Configuration();
     configuration.set("key", "val");
     FileIO fileIO = CatalogUtil.loadFileIO(TestFileIOConfigurable.class.getName(), Maps.newHashMap(), configuration);
-    Assertions.assertThat(fileIO).isInstanceOf(TestFileIOConfigurable.class);
+    Assert.assertTrue(fileIO instanceof TestFileIOConfigurable);
     Assert.assertEquals(configuration, ((TestFileIOConfigurable) fileIO).configuration);
   }
 

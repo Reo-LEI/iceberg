@@ -68,16 +68,13 @@ public class LocationProviders {
     }
   }
 
-  private static String defaultDataLocation(String tableLocation, Map<String, String> properties) {
-    return properties.getOrDefault(TableProperties.WRITE_FOLDER_STORAGE_LOCATION,
-        String.format("%s/data", tableLocation));
-  }
-
   static class DefaultLocationProvider implements LocationProvider {
     private final String dataLocation;
 
     DefaultLocationProvider(String tableLocation, Map<String, String> properties) {
-      this.dataLocation = stripTrailingSlash(defaultDataLocation(tableLocation, properties));
+      this.dataLocation = stripTrailingSlash(properties.getOrDefault(
+          TableProperties.WRITE_NEW_DATA_LOCATION,
+          String.format("%s/data", tableLocation)));
     }
 
     @Override
@@ -99,8 +96,7 @@ public class LocationProviders {
     private final String context;
 
     ObjectStoreLocationProvider(String tableLocation, Map<String, String> properties) {
-      this.storageLocation = stripTrailingSlash(properties.getOrDefault(OBJECT_STORE_PATH,
-          defaultDataLocation(tableLocation, properties)));
+      this.storageLocation = stripTrailingSlash(properties.get(OBJECT_STORE_PATH));
       this.context = pathContext(tableLocation);
     }
 

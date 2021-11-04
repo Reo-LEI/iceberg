@@ -43,7 +43,6 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.serializer.KryoSerializer;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
-import org.assertj.core.api.Assertions;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
@@ -86,7 +85,7 @@ public abstract class TestScanTaskSerialization extends SparkTestBase {
 
     try (Input in = new Input(new FileInputStream(data))) {
       Object obj = kryo.readClassAndObject(in);
-      Assertions.assertThat(obj).as("Should be a BaseCombinedScanTask").isInstanceOf(BaseCombinedScanTask.class);
+      Assert.assertTrue("Should be a BaseCombinedScanTask", obj instanceof BaseCombinedScanTask);
       TaskCheckHelper.assertEquals(scanTask, (BaseCombinedScanTask) obj);
     }
   }
@@ -102,7 +101,7 @@ public abstract class TestScanTaskSerialization extends SparkTestBase {
 
     try (ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
       Object obj = in.readObject();
-      Assertions.assertThat(obj).as("Should be a BaseCombinedScanTask").isInstanceOf(BaseCombinedScanTask.class);
+      Assert.assertTrue("Should be a BaseCombinedScanTask", obj instanceof BaseCombinedScanTask);
       TaskCheckHelper.assertEquals(scanTask, (BaseCombinedScanTask) obj);
     }
   }

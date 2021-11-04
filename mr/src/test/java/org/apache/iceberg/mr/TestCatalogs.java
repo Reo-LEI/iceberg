@@ -39,7 +39,6 @@ import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.hadoop.HadoopTables;
 import org.apache.iceberg.hive.HiveCatalog;
 import org.apache.iceberg.types.Types;
-import org.assertj.core.api.Assertions;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
@@ -196,7 +195,7 @@ public class TestCatalogs {
   public void testLegacyLoadCatalogDefault() {
     Optional<Catalog> defaultCatalog = Catalogs.loadCatalog(conf, null);
     Assert.assertTrue(defaultCatalog.isPresent());
-    Assertions.assertThat(defaultCatalog.get()).isInstanceOf(HiveCatalog.class);
+    Assert.assertTrue(defaultCatalog.get() instanceof HiveCatalog);
   }
 
   @Test
@@ -204,7 +203,7 @@ public class TestCatalogs {
     conf.set(InputFormatConfig.CATALOG, CatalogUtil.ICEBERG_CATALOG_TYPE_HIVE);
     Optional<Catalog> hiveCatalog = Catalogs.loadCatalog(conf, null);
     Assert.assertTrue(hiveCatalog.isPresent());
-    Assertions.assertThat(hiveCatalog.get()).isInstanceOf(HiveCatalog.class);
+    Assert.assertTrue(hiveCatalog.get() instanceof HiveCatalog);
   }
 
   @Test
@@ -213,7 +212,7 @@ public class TestCatalogs {
     conf.set(InputFormatConfig.HADOOP_CATALOG_WAREHOUSE_LOCATION, "/tmp/mylocation");
     Optional<Catalog> hadoopCatalog = Catalogs.loadCatalog(conf, null);
     Assert.assertTrue(hadoopCatalog.isPresent());
-    Assertions.assertThat(hadoopCatalog.get()).isInstanceOf(HadoopCatalog.class);
+    Assert.assertTrue(hadoopCatalog.get() instanceof HadoopCatalog);
   }
 
   @Test
@@ -222,7 +221,7 @@ public class TestCatalogs {
     conf.set(InputFormatConfig.HADOOP_CATALOG_WAREHOUSE_LOCATION, "/tmp/mylocation");
     Optional<Catalog> customHadoopCatalog = Catalogs.loadCatalog(conf, null);
     Assert.assertTrue(customHadoopCatalog.isPresent());
-    Assertions.assertThat(customHadoopCatalog.get()).isInstanceOf(CustomHadoopCatalog.class);
+    Assert.assertTrue(customHadoopCatalog.get() instanceof CustomHadoopCatalog);
   }
 
   @Test
@@ -243,7 +242,7 @@ public class TestCatalogs {
   public void testLoadCatalogDefault() {
     Optional<Catalog> defaultCatalog = Catalogs.loadCatalog(conf, "barCatalog");
     Assert.assertTrue(defaultCatalog.isPresent());
-    Assertions.assertThat(defaultCatalog.get()).isInstanceOf(HiveCatalog.class);
+    Assert.assertTrue(defaultCatalog.get() instanceof HiveCatalog);
   }
 
   @Test
@@ -253,7 +252,7 @@ public class TestCatalogs {
         CatalogUtil.ICEBERG_CATALOG_TYPE_HIVE);
     Optional<Catalog> hiveCatalog = Catalogs.loadCatalog(conf, catalogName);
     Assert.assertTrue(hiveCatalog.isPresent());
-    Assertions.assertThat(hiveCatalog.get()).isInstanceOf(HiveCatalog.class);
+    Assert.assertTrue(hiveCatalog.get() instanceof HiveCatalog);
   }
 
   @Test
@@ -265,7 +264,7 @@ public class TestCatalogs {
         "/tmp/mylocation");
     Optional<Catalog> hadoopCatalog = Catalogs.loadCatalog(conf, catalogName);
     Assert.assertTrue(hadoopCatalog.isPresent());
-    Assertions.assertThat(hadoopCatalog.get()).isInstanceOf(HadoopCatalog.class);
+    Assert.assertTrue(hadoopCatalog.get() instanceof HadoopCatalog);
     Assert.assertEquals("HadoopCatalog{name=barCatalog, location=/tmp/mylocation}", hadoopCatalog.get().toString());
   }
 
@@ -277,7 +276,7 @@ public class TestCatalogs {
     conf.set(InputFormatConfig.HADOOP_CATALOG_WAREHOUSE_LOCATION, "/tmp/mylocation");
     Optional<Catalog> hadoopCatalog = Catalogs.loadCatalog(conf, catalogName);
     Assert.assertTrue(hadoopCatalog.isPresent());
-    Assertions.assertThat(hadoopCatalog.get()).isInstanceOf(HadoopCatalog.class);
+    Assert.assertTrue(hadoopCatalog.get() instanceof HadoopCatalog);
     Assert.assertEquals("HadoopCatalog{name=barCatalog, location=/tmp/mylocation}", hadoopCatalog.get().toString());
   }
 
@@ -290,7 +289,7 @@ public class TestCatalogs {
         "/tmp/mylocation");
     Optional<Catalog> customHadoopCatalog = Catalogs.loadCatalog(conf, catalogName);
     Assert.assertTrue(customHadoopCatalog.isPresent());
-    Assertions.assertThat(customHadoopCatalog.get()).isInstanceOf(CustomHadoopCatalog.class);
+    Assert.assertTrue(customHadoopCatalog.get() instanceof CustomHadoopCatalog);
   }
 
   @Test

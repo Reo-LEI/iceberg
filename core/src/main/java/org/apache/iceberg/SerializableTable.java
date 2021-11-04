@@ -54,8 +54,7 @@ public class SerializableTable implements Table, Serializable {
   private final String metadataFileLocation;
   private final Map<String, String> properties;
   private final String schemaAsJson;
-  private final int defaultSpecId;
-  private final Map<Integer, String> specAsJsonMap;
+  private final String specAsJson;
   private final String sortOrderAsJson;
   private final FileIO io;
   private final EncryptionManager encryption;
@@ -63,7 +62,7 @@ public class SerializableTable implements Table, Serializable {
 
   private transient volatile Table lazyTable = null;
   private transient volatile Schema lazySchema = null;
-  private transient volatile Map<Integer, PartitionSpec> lazySpecs = null;
+  private transient volatile PartitionSpec lazySpec = null;
   private transient volatile SortOrder lazySortOrder = null;
 
   private SerializableTable(Table table) {
@@ -72,10 +71,7 @@ public class SerializableTable implements Table, Serializable {
     this.metadataFileLocation = metadataFileLocation(table);
     this.properties = SerializableMap.copyOf(table.properties());
     this.schemaAsJson = SchemaParser.toJson(table.schema());
-    this.defaultSpecId = table.spec().specId();
-    this.specAsJsonMap = Maps.newHashMap();
-    Map<Integer, PartitionSpec> specs = table.specs();
-    specs.forEach((specId, spec) -> specAsJsonMap.put(specId, PartitionSpecParser.toJson(spec)));
+    this.specAsJson = PartitionSpecParser.toJson(table.spec());
     this.sortOrderAsJson = SortOrderParser.toJson(table.sortOrder());
     this.io = fileIO(table);
     this.encryption = table.encryption();
@@ -166,33 +162,24 @@ public class SerializableTable implements Table, Serializable {
   }
 
   @Override
-  public Map<Integer, Schema> schemas() {
-    return lazyTable().schemas();
-  }
-
-  @Override
   public PartitionSpec spec() {
-    return specs().get(defaultSpecId);
-  }
-
-  @Override
-  public Map<Integer, PartitionSpec> specs() {
-    if (lazySpecs == null) {
+    if (lazySpec == null) {
       synchronized (this) {
-        if (lazySpecs == null && lazyTable == null) {
+        if (lazySpec == null && lazyTable == null) {
           // prefer parsing JSON as opposed to loading the metadata
-          Map<Integer, PartitionSpec> specs = Maps.newHashMapWithExpectedSize(specAsJsonMap.size());
-          specAsJsonMap.forEach((specId, specAsJson) -> {
-            specs.put(specId, PartitionSpecParser.fromJson(schema(), specAsJson));
-          });
-          this.lazySpecs = specs;
-        } else if (lazySpecs == null) {
-          this.lazySpecs = lazyTable.specs();
+          this.lazySpec = PartitionSpecParser.fromJson(schema(), specAsJson);
+        } else if (lazySpec == null) {
+          this.lazySpec = lazyTable.spec();
         }
       }
     }
 
-    return lazySpecs;
+    return lazySpec;
+  }
+
+  @Override
+  public Map<Integer, PartitionSpec> specs() {
+    return lazyTable().specs();
   }
 
   @Override

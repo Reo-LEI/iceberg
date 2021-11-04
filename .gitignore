@@ -13,7 +13,6 @@ tmp/
 # gradle build
 .gradle
 .out/
-*/out/
 build
 dependencies.lock
 **/dependencies.lock

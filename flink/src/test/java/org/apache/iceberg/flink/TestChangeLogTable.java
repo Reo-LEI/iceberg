@@ -38,7 +38,6 @@ import org.apache.iceberg.relocated.com.google.common.base.Joiner;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.relocated.com.google.common.collect.Lists;
-import org.apache.iceberg.relocated.com.google.common.collect.Sets;
 import org.apache.iceberg.util.StructLikeSet;
 import org.junit.After;
 import org.junit.Assert;
@@ -126,10 +125,10 @@ public class TestChangeLogTable extends ChangeLogTableTestBase {
         )
     );
 
-    List<List<Row>> expectedRecordsPerCheckpoint = ImmutableList.of(
-        ImmutableList.of(insertRow(1, "bbb"), insertRow(2, "bbb")),
-        ImmutableList.of(insertRow(1, "bbb"), insertRow(2, "ddd")),
-        ImmutableList.of(insertRow(1, "ddd"), insertRow(2, "ddd"))
+    List<List<Record>> expectedRecordsPerCheckpoint = ImmutableList.of(
+        ImmutableList.of(record(1, "bbb"), record(2, "bbb")),
+        ImmutableList.of(record(1, "bbb"), record(2, "ddd")),
+        ImmutableList.of(record(1, "ddd"), record(2, "ddd"))
     );
 
     testSqlChangeLog(TABLE_NAME, ImmutableList.of("id"), inputRowsPerCheckpoint,
@@ -158,10 +157,10 @@ public class TestChangeLogTable extends ChangeLogTableTestBase {
         )
     );
 
-    List<List<Row>> expectedRecords = ImmutableList.of(
-        ImmutableList.of(insertRow(1, "bbb"), insertRow(2, "aaa")),
-        ImmutableList.of(insertRow(1, "aaa"), insertRow(1, "bbb"), insertRow(1, "ccc")),
-        ImmutableList.of(insertRow(1, "aaa"), insertRow(1, "ccc"), insertRow(2, "aaa"), insertRow(2, "ccc"))
+    List<List<Record>> expectedRecords = ImmutableList.of(
+        ImmutableList.of(record(1, "bbb"), record(2, "aaa")),
+        ImmutableList.of(record(1, "aaa"), record(1, "bbb"), record(1, "ccc")),
+        ImmutableList.of(record(1, "aaa"), record(1, "ccc"), record(2, "aaa"), record(2, "ccc"))
     );
 
     testSqlChangeLog(TABLE_NAME, ImmutableList.of("data"), elementsPerCheckpoint, expectedRecords);
@@ -188,10 +187,10 @@ public class TestChangeLogTable extends ChangeLogTableTestBase {
         )
     );
 
-    List<List<Row>> expectedRecords = ImmutableList.of(
-        ImmutableList.of(insertRow(1, "bbb"), insertRow(2, "aaa"), insertRow(2, "bbb")),
-        ImmutableList.of(insertRow(1, "aaa"), insertRow(1, "bbb"), insertRow(1, "ccc"), insertRow(2, "bbb")),
-        ImmutableList.of(insertRow(1, "aaa"), insertRow(1, "ccc"), insertRow(2, "aaa"), insertRow(2, "bbb"))
+    List<List<Record>> expectedRecords = ImmutableList.of(
+        ImmutableList.of(record(1, "bbb"), record(2, "aaa"), record(2, "bbb")),
+        ImmutableList.of(record(1, "aaa"), record(1, "bbb"), record(1, "ccc"), record(2, "bbb")),
+        ImmutableList.of(record(1, "aaa"), record(1, "ccc"), record(2, "aaa"), record(2, "bbb"))
     );
 
     testSqlChangeLog(TABLE_NAME, ImmutableList.of("data", "id"), elementsPerCheckpoint, expectedRecords);
@@ -214,31 +213,31 @@ public class TestChangeLogTable extends ChangeLogTableTestBase {
         )
     );
 
-    List<List<Row>> expectedRecords = ImmutableList.of(
+    List<List<Record>> expectedRecords = ImmutableList.of(
         ImmutableList.of(
-            insertRow(1, "aaa"),
-            insertRow(2, "bbb")
+            record(1, "aaa"),
+            record(2, "bbb")
         ),
         ImmutableList.of(
-            insertRow(1, "aaa"),
-            insertRow(2, "bbb"),
-            insertRow(3, "ccc"),
-            insertRow(4, "ddd")
+            record(1, "aaa"),
+            record(2, "bbb"),
+            record(3, "ccc"),
+            record(4, "ddd")
         ),
         ImmutableList.of(
-            insertRow(1, "aaa"),
-            insertRow(2, "bbb"),
-            insertRow(3, "ccc"),
-            insertRow(4, "ddd"),
-            insertRow(5, "eee"),
-            insertRow(6, "fff")
+            record(1, "aaa"),
+            record(2, "bbb"),
+            record(3, "ccc"),
+            record(4, "ddd"),
+            record(5, "eee"),
+            record(6, "fff")
         )
     );
 
     testSqlChangeLog(TABLE_NAME, ImmutableList.of("data"), elementsPerCheckpoint, expectedRecords);
   }
 
-  private static Record record(int id, String data) {
+  private Record record(int id, String data) {
     return SimpleDataUtil.createRecord(id, data);
   }
 
@@ -262,7 +261,7 @@ public class TestChangeLogTable extends ChangeLogTableTestBase {
   private void testSqlChangeLog(String tableName,
                                 List<String> key,
                                 List<List<Row>> inputRowsPerCheckpoint,
-                                List<List<Row>> expectedRecordsPerCheckpoint) throws Exception {
+                                List<List<Record>> expectedRecordsPerCheckpoint) throws Exception {
     String dataId = BoundedTableFactory.registerDataSet(inputRowsPerCheckpoint);
     sql("CREATE TABLE %s(id INT NOT NULL, data STRING NOT NULL)" +
         " WITH ('connector'='BoundedSource', 'data-id'='%s')", SOURCE_TABLE, dataId);
@@ -274,8 +273,6 @@ public class TestChangeLogTable extends ChangeLogTableTestBase {
     Table table = createTable(tableName, key, partitioned);
     sql("INSERT INTO %s SELECT * FROM %s", tableName, SOURCE_TABLE);
 
-    sql("SELECT * FROM %s", tableName);
-
     table.refresh();
     List<Snapshot> snapshots = findValidSnapshots(table);
     int expectedSnapshotNum = expectedRecordsPerCheckpoint.size();
@@ -283,15 +280,9 @@ public class TestChangeLogTable extends ChangeLogTableTestBase {
 
     for (int i = 0; i < expectedSnapshotNum; i++) {
       long snapshotId = snapshots.get(i).snapshotId();
-      List<Row> expectedRowss = expectedRecordsPerCheckpoint.get(i);
+      List<Record> expectedRecords = expectedRecordsPerCheckpoint.get(i);
       Assert.assertEquals("Should have the expected records for the checkpoint#" + i,
-          expectedRowSet(table, expectedRowss), actualRowSet(table, snapshotId));
-    }
-
-    if (expectedSnapshotNum > 0) {
-      Assert.assertEquals("Should have the expected rows in the final table",
-          Sets.newHashSet(expectedRecordsPerCheckpoint.get(expectedSnapshotNum - 1)),
-          Sets.newHashSet(sql("SELECT * FROM %s", tableName)));
+          expectedRowSet(table, expectedRecords), actualRowSet(table, snapshotId));
     }
   }
 
@@ -305,12 +296,8 @@ public class TestChangeLogTable extends ChangeLogTableTestBase {
     return validSnapshots;
   }
 
-  private static StructLikeSet expectedRowSet(Table table, List<Row> rows) {
-    Record[] records = new Record[rows.size()];
-    for (int i = 0; i < records.length; i++) {
-      records[i] = record((int) rows.get(i).getField(0), (String) rows.get(i).getField(1));
-    }
-    return SimpleDataUtil.expectedRowSet(table, records);
+  private static StructLikeSet expectedRowSet(Table table, List<Record> records) {
+    return SimpleDataUtil.expectedRowSet(table, records.toArray(new Record[0]));
   }
 
   private static StructLikeSet actualRowSet(Table table, long snapshotId) throws IOException {

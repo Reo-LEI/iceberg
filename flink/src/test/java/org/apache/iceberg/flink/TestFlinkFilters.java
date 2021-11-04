@@ -50,7 +50,6 @@ import org.apache.iceberg.expressions.UnboundPredicate;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList;
 import org.apache.iceberg.util.DateTimeUtil;
 import org.apache.iceberg.util.Pair;
-import org.assertj.core.api.Assertions;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -343,14 +342,12 @@ public class TestFlinkFilters {
     Optional<org.apache.iceberg.expressions.Expression> actual = FlinkFilters.convert(expr);
     Assert.assertTrue("Conversion should succeed", actual.isPresent());
     org.apache.iceberg.expressions.Expression expression = actual.get();
-    Assertions.assertThat(expression).as("The expression should be a UnboundPredicate")
-        .isInstanceOf(UnboundPredicate.class);
+    Assert.assertTrue("The expression should be a UnboundPredicate", expression instanceof UnboundPredicate);
     UnboundPredicate<T> unboundPredicate = (UnboundPredicate<T>) expression;
 
     org.apache.iceberg.expressions.Expression expression1 =
         unboundPredicate.bind(FlinkSchemaUtil.convert(TABLE_SCHEMA).asStruct(), false);
-    Assertions.assertThat(expression1).as("The expression should be a BoundLiteralPredicate")
-        .isInstanceOf(BoundLiteralPredicate.class);
+    Assert.assertTrue("The expression should be a BoundLiteralPredicate", expression1 instanceof BoundLiteralPredicate);
 
     BoundLiteralPredicate<T> predicate = (BoundLiteralPredicate<T>) expression1;
     Assert.assertTrue("Should match the  literal", predicate.test(icebergLiteral));
@@ -392,10 +389,8 @@ public class TestFlinkFilters {
 
   private void assertPredicatesMatch(org.apache.iceberg.expressions.Expression expected,
                                      org.apache.iceberg.expressions.Expression actual) {
-    Assertions.assertThat(expected).as("The expected expression should be a UnboundPredicate")
-        .isInstanceOf(UnboundPredicate.class);
-    Assertions.assertThat(actual).as("The actual expression should be a UnboundPredicate")
-        .isInstanceOf(UnboundPredicate.class);
+    Assert.assertTrue("The expected expression should be a UnboundPredicate", expected instanceof UnboundPredicate<?>);
+    Assert.assertTrue("The actual expression should be a UnboundPredicate", actual instanceof UnboundPredicate<?>);
     UnboundPredicate<?> predicateExpected = (UnboundPredicate<?>) expected;
     UnboundPredicate<?> predicateActual = (UnboundPredicate<?>) actual;
     Assert.assertEquals("Predicate operation should match", predicateExpected.op(), predicateActual.op());
