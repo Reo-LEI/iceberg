@@ -1,1 +1,1 @@
-huya-0.11.0-SNAPSHOT
+huya-0.12.1.1-SNAPSHOT
