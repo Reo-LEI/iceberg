@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.data.GenericRowData;
@@ -37,9 +38,13 @@ import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.PartitionKey;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.TableScan;
 import org.apache.iceberg.data.GenericRecord;
 import org.apache.iceberg.data.IcebergGenerics;
 import org.apache.iceberg.data.Record;
@@ -50,11 +55,15 @@ import org.apache.iceberg.flink.sink.FlinkAppenderFactory;
 import org.apache.iceberg.hadoop.HadoopInputFile;
 import org.apache.iceberg.hadoop.HadoopTables;
 import org.apache.iceberg.io.CloseableIterable;
+import org.apache.iceberg.io.DataWriter;
 import org.apache.iceberg.io.FileAppender;
 import org.apache.iceberg.io.FileAppenderFactory;
 import org.apache.iceberg.relocated.com.google.common.base.Preconditions;
+import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
+import org.apache.iceberg.relocated.com.google.common.collect.Iterables;
 import org.apache.iceberg.relocated.com.google.common.collect.Lists;
+import org.apache.iceberg.relocated.com.google.common.collect.Maps;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.Pair;
 import org.apache.iceberg.util.StructLikeSet;
@@ -99,6 +108,13 @@ public class SimpleDataUtil {
     return record;
   }
 
+  public static StructLike createPartition(Integer id, String data) {
+    PartitionSpec spec = PartitionSpec.builderFor(SCHEMA).identity("data").build();
+    PartitionKey wrapper = new PartitionKey(spec, SCHEMA);
+    wrapper.partition(createRecord(id, data));
+    return wrapper;
+  }
+
   public static RowData createRowData(Integer id, String data) {
     return GenericRowData.of(id, StringData.fromString(data));
   }
@@ -141,13 +157,27 @@ public class SimpleDataUtil {
         .build();
   }
 
-  public static DeleteFile writeEqDeleteFile(Table table, FileFormat format, String tablePath, String filename,
-                                             FileAppenderFactory<RowData> appenderFactory,
-                                             List<RowData> deletes) throws IOException {
+  public static DataFile writeDataFile(Table table, FileFormat format, String tablePath, String filename,
+                                       FileAppenderFactory<RowData> appenderFactory,
+                                       StructLike partition, List<RowData> rows) throws IOException {
     EncryptedOutputFile outputFile =
         table.encryption().encrypt(fromPath(new Path(tablePath, filename), new Configuration()));
 
-    EqualityDeleteWriter<RowData> eqWriter = appenderFactory.newEqDeleteWriter(outputFile, format, null);
+    DataWriter<RowData> dataWriter = appenderFactory.newDataWriter(outputFile, format, partition);
+    try (DataWriter<RowData> writer = dataWriter) {
+      writer.write(rows);
+    }
+
+    return dataWriter.toDataFile();
+  }
+
+  public static DeleteFile writeEqDeleteFile(Table table, FileFormat format, String tablePath, String filename,
+                                             FileAppenderFactory<RowData> appenderFactory,
+                                             StructLike partition, List<RowData> deletes) throws IOException {
+    EncryptedOutputFile outputFile =
+        table.encryption().encrypt(fromPath(new Path(tablePath, filename), new Configuration()));
+
+    EqualityDeleteWriter<RowData> eqWriter = appenderFactory.newEqDeleteWriter(outputFile, format, partition);
     try (EqualityDeleteWriter<RowData> writer = eqWriter) {
       writer.deleteAll(deletes);
     }
@@ -157,11 +187,12 @@ public class SimpleDataUtil {
   public static DeleteFile writePosDeleteFile(Table table, FileFormat format, String tablePath,
                                               String filename,
                                               FileAppenderFactory<RowData> appenderFactory,
+                                              StructLike partition,
                                               List<Pair<CharSequence, Long>> positions) throws IOException {
     EncryptedOutputFile outputFile =
         table.encryption().encrypt(fromPath(new Path(tablePath, filename), new Configuration()));
 
-    PositionDeleteWriter<RowData> posWriter = appenderFactory.newPosDeleteWriter(outputFile, format, null);
+    PositionDeleteWriter<RowData> posWriter = appenderFactory.newPosDeleteWriter(outputFile, format, partition);
     try (PositionDeleteWriter<RowData> writer = posWriter) {
       for (Pair<CharSequence, Long> p : positions) {
         writer.delete(p.first(), p.second());
@@ -237,18 +268,18 @@ public class SimpleDataUtil {
   public static List<DataFile> partitionDataFiles(Table table, Map<String, Object> partitionValues)
       throws IOException {
     table.refresh();
-    Types.StructType spec = table.spec().partitionType();
+    Types.StructType partitionType = table.spec().partitionType();
 
-    Record partitionRecord = GenericRecord.create(spec).copy(partitionValues);
+    Record partitionRecord = GenericRecord.create(partitionType).copy(partitionValues);
     StructLikeWrapper expectedWrapper = StructLikeWrapper
-        .forType(spec)
+        .forType(partitionType)
         .set(partitionRecord);
 
     List<DataFile> dataFiles = Lists.newArrayList();
     try (CloseableIterable<FileScanTask> fileScanTasks = table.newScan().planFiles()) {
       for (FileScanTask scanTask : fileScanTasks) {
         StructLikeWrapper wrapper = StructLikeWrapper
-            .forType(spec)
+            .forType(partitionType)
             .set(scanTask.file().partition());
 
         if (expectedWrapper.equals(wrapper)) {
@@ -259,4 +290,46 @@ public class SimpleDataUtil {
 
     return dataFiles;
   }
+
+  public static Map<Long, List<DataFile>> snapshotToDataFiles(Table table) throws IOException {
+    table.refresh();
+
+    Map<Long, List<DataFile>> result = Maps.newHashMap();
+    Snapshot current = table.currentSnapshot();
+    while (current != null) {
+      TableScan tableScan = table.newScan();
+      if (current.parentId() != null) {
+        // Collect the data files that was added only in current snapshot.
+        tableScan.appendsBetween(current.parentId(), current.snapshotId());
+      } else {
+        // Collect the data files that was added in the oldest snapshot.
+        tableScan.useSnapshot(current.snapshotId());
+      }
+      try (CloseableIterable<FileScanTask> scanTasks = tableScan.planFiles()) {
+        result.put(current.snapshotId(), ImmutableList.copyOf(Iterables.transform(scanTasks, FileScanTask::file)));
+      }
+
+      // Continue to traverse the parent snapshot if exists.
+      if (current.parentId() == null) {
+        break;
+      }
+      // Iterate to the parent snapshot.
+      current = table.snapshot(current.parentId());
+    }
+    return result;
+  }
+
+  public static List<DataFile> matchingPartitions(
+      List<DataFile> dataFiles, PartitionSpec partitionSpec, Map<String, Object> partitionValues) {
+    Types.StructType partitionType = partitionSpec.partitionType();
+    Record partitionRecord = GenericRecord.create(partitionType).copy(partitionValues);
+    StructLikeWrapper expected = StructLikeWrapper
+        .forType(partitionType)
+        .set(partitionRecord);
+    return dataFiles.stream().filter(df -> {
+      StructLikeWrapper wrapper = StructLikeWrapper.forType(partitionType).set(df.partition());
+      return wrapper.equals(expected);
+    }).collect(Collectors.toList());
+  }
+
 }

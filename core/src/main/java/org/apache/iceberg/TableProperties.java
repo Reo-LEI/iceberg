@@ -19,10 +19,36 @@
 
 package org.apache.iceberg;
 
+import java.util.Set;
+import org.apache.iceberg.relocated.com.google.common.collect.ImmutableSet;
+
 public class TableProperties {
 
   private TableProperties() {
   }
+
+  /**
+   * Reserved table property for table format version.
+   * <p>
+   * Iceberg will default a new table's format version to the latest stable and recommended version.
+   * This reserved property keyword allows users to override the Iceberg format version of the table metadata.
+   * <p>
+   * If this table property exists when creating a table, the table will use the specified format version.
+   * If a table updates this property, it will try to upgrade to the specified format version.
+   * <p>
+   * Note: incomplete or unstable versions cannot be selected using this property.
+   */
+  public static final String FORMAT_VERSION = "format-version";
+
+  /**
+   * Reserved Iceberg table properties list.
+   * <p>
+   * Reserved table properties are only used to control behaviors when creating or updating a table.
+   * The value of these properties are not persisted as a part of the table metadata.
+   */
+  public static final Set<String> RESERVED_PROPERTIES = ImmutableSet.of(
+      FORMAT_VERSION
+  );
 
   public static final String COMMIT_NUM_RETRIES = "commit.retry.num-retries";
   public static final int COMMIT_NUM_RETRIES_DEFAULT = 4;
@@ -58,24 +84,31 @@ public class TableProperties {
   public static final boolean MANIFEST_MERGE_ENABLED_DEFAULT = true;
 
   public static final String DEFAULT_FILE_FORMAT = "write.format.default";
+  public static final String DELETE_DEFAULT_FILE_FORMAT = "write.delete.format.default";
   public static final String DEFAULT_FILE_FORMAT_DEFAULT = "parquet";
 
   public static final String PARQUET_ROW_GROUP_SIZE_BYTES = "write.parquet.row-group-size-bytes";
+  public static final String DELETE_PARQUET_ROW_GROUP_SIZE_BYTES = "write.delete.parquet.row-group-size-bytes";
   public static final String PARQUET_ROW_GROUP_SIZE_BYTES_DEFAULT = "134217728"; // 128 MB
 
   public static final String PARQUET_PAGE_SIZE_BYTES = "write.parquet.page-size-bytes";
+  public static final String DELETE_PARQUET_PAGE_SIZE_BYTES = "write.delete.parquet.page-size-bytes";
   public static final String PARQUET_PAGE_SIZE_BYTES_DEFAULT = "1048576"; // 1 MB
 
   public static final String PARQUET_DICT_SIZE_BYTES = "write.parquet.dict-size-bytes";
+  public static final String DELETE_PARQUET_DICT_SIZE_BYTES = "write.delete.parquet.dict-size-bytes";
   public static final String PARQUET_DICT_SIZE_BYTES_DEFAULT = "2097152"; // 2 MB
 
   public static final String PARQUET_COMPRESSION = "write.parquet.compression-codec";
+  public static final String DELETE_PARQUET_COMPRESSION = "write.delete.parquet.compression-codec";
   public static final String PARQUET_COMPRESSION_DEFAULT = "gzip";
 
   public static final String PARQUET_COMPRESSION_LEVEL = "write.parquet.compression-level";
+  public static final String DELETE_PARQUET_COMPRESSION_LEVEL = "write.delete.parquet.compression-level";
   public static final String PARQUET_COMPRESSION_LEVEL_DEFAULT = null;
 
   public static final String AVRO_COMPRESSION = "write.avro.compression-codec";
+  public static final String DELETE_AVRO_COMPRESSION = "write.delete.avro.compression-codec";
   public static final String AVRO_COMPRESSION_DEFAULT = "gzip";
 
   public static final String SPLIT_SIZE = "read.split.target-size";
@@ -99,17 +132,36 @@ public class TableProperties {
   public static final String ORC_VECTORIZATION_ENABLED = "read.orc.vectorization.enabled";
   public static final boolean ORC_VECTORIZATION_ENABLED_DEFAULT = false;
 
+  public static final String ORC_BATCH_SIZE = "read.orc.vectorization.batch-size";
+  public static final int ORC_BATCH_SIZE_DEFAULT = 5000;
+
   public static final String OBJECT_STORE_ENABLED = "write.object-storage.enabled";
   public static final boolean OBJECT_STORE_ENABLED_DEFAULT = false;
 
+  /**
+   * @deprecated Use {@link #WRITE_DATA_LOCATION} instead.
+   */
+  @Deprecated
   public static final String OBJECT_STORE_PATH = "write.object-storage.path";
 
   public static final String WRITE_LOCATION_PROVIDER_IMPL = "write.location-provider.impl";
 
+  /**
+   * @deprecated Use {@link #WRITE_DATA_LOCATION} instead.
+   */
+  @Deprecated
+  public static final String WRITE_FOLDER_STORAGE_LOCATION = "write.folder-storage.path";
+
+  /**
+   * @deprecated will be removed in 0.14.0, use {@link #WRITE_DATA_LOCATION} instead
+   */
+  @Deprecated
+  public static final String WRITE_NEW_DATA_LOCATION = "write.folder-storage.path";
+
   // This only applies to files written after this property is set. Files previously written aren't
   // relocated to reflect this parameter.
   // If not set, defaults to a "data" folder underneath the root path of the table.
-  public static final String WRITE_NEW_DATA_LOCATION = "write.folder-storage.path";
+  public static final String WRITE_DATA_LOCATION = "write.data.path";
 
   // This only applies to files written after this property is set. Files previously written aren't
   // relocated to reflect this parameter.
@@ -142,6 +194,7 @@ public class TableProperties {
   public static final String WRITE_AUDIT_PUBLISH_ENABLED_DEFAULT = "false";
 
   public static final String WRITE_TARGET_FILE_SIZE_BYTES = "write.target-file-size-bytes";
+  public static final String DELETE_TARGET_FILE_SIZE_BYTES = "write.delete.target-file-size-bytes";
   public static final long WRITE_TARGET_FILE_SIZE_BYTES_DEFAULT = 536870912; // 512 MB
 
   public static final String SPARK_WRITE_PARTITIONED_FANOUT_ENABLED = "write.spark.fanout.enabled";
@@ -158,6 +211,12 @@ public class TableProperties {
   public static final String WRITE_DISTRIBUTION_MODE_HASH = "hash";
   public static final String WRITE_DISTRIBUTION_MODE_RANGE = "range";
   public static final String WRITE_DISTRIBUTION_MODE_DEFAULT = WRITE_DISTRIBUTION_MODE_NONE;
+
+  public static final String DELTA_WRITER_IMPL = "write.delta-writer-impl";
+  public static final String DELTA_WRITER_IMPL_IN_MEMORY = "in-memory";
+  public static final String DELTA_WRITER_IMPL_ROCKSDB = "rocksdb";
+  public static final String DELTA_WRITER_IMPL_FILE = "file";
+  public static final String DELTA_WRITER_IMPL_DEFAULT = DELTA_WRITER_IMPL_FILE;
 
   public static final String GC_ENABLED = "gc.enabled";
   public static final boolean GC_ENABLED_DEFAULT = true;
@@ -188,4 +247,7 @@ public class TableProperties {
 
   public static final String MERGE_CARDINALITY_CHECK_ENABLED = "write.merge.cardinality-check.enabled";
   public static final boolean MERGE_CARDINALITY_CHECK_ENABLED_DEFAULT = true;
+
+  public static final String UPSERT_MODE_ENABLE = "write.upsert.enable";
+  public static final boolean UPSERT_MODE_ENABLE_DEFAULT = false;
 }

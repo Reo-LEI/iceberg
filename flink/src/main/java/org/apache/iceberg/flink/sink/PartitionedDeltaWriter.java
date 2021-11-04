@@ -47,10 +47,13 @@ class PartitionedDeltaWriter extends BaseDeltaTaskWriter {
                          OutputFileFactory fileFactory,
                          FileIO io,
                          long targetFileSize,
+                         Map<String, String> properties,
                          Schema schema,
                          RowType flinkSchema,
-                         List<Integer> equalityFieldIds) {
-    super(spec, format, appenderFactory, fileFactory, io, targetFileSize, schema, flinkSchema, equalityFieldIds);
+                         List<Integer> equalityFieldIds,
+                         boolean upsert) {
+    super(spec, format, appenderFactory, fileFactory, io, targetFileSize, properties, schema, flinkSchema,
+        equalityFieldIds, upsert);
     this.partitionKey = new PartitionKey(spec, schema);
   }
 
@@ -62,7 +65,7 @@ class PartitionedDeltaWriter extends BaseDeltaTaskWriter {
     if (writer == null) {
       // NOTICE: we need to copy a new partition key here, in case of messing up the keys in writers.
       PartitionKey copiedKey = partitionKey.copy();
-      writer = new RowDataDeltaWriter(copiedKey);
+      writer = loadWriter(copiedKey);
       writers.put(copiedKey, writer);
     }
 

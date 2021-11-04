@@ -22,8 +22,10 @@ package org.apache.iceberg.util;
 import java.util.function.Function;
 import org.apache.iceberg.BaseCombinedScanTask;
 import org.apache.iceberg.CombinedScanTask;
+import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.io.CloseableIterable;
+import org.apache.iceberg.relocated.com.google.common.base.Preconditions;
 import org.apache.iceberg.relocated.com.google.common.collect.FluentIterable;
 
 public class TableScanUtil {
@@ -40,6 +42,8 @@ public class TableScanUtil {
   }
 
   public static CloseableIterable<FileScanTask> splitFiles(CloseableIterable<FileScanTask> tasks, long splitSize) {
+    Preconditions.checkArgument(splitSize > 0, "Invalid split size (negative or 0): %s", splitSize);
+
     Iterable<FileScanTask> splitTasks = FluentIterable
         .from(tasks)
         .transformAndConcat(input -> input.split(splitSize));
@@ -49,7 +53,14 @@ public class TableScanUtil {
 
   public static CloseableIterable<CombinedScanTask> planTasks(CloseableIterable<FileScanTask> splitFiles,
                                                               long splitSize, int lookback, long openFileCost) {
-    Function<FileScanTask, Long> weightFunc = file -> Math.max(file.length(), openFileCost);
+    Preconditions.checkArgument(splitSize > 0, "Invalid split size (negative or 0): %s", splitSize);
+    Preconditions.checkArgument(lookback > 0, "Invalid split planning lookback (negative or 0): %s", lookback);
+    Preconditions.checkArgument(openFileCost >= 0, "Invalid file open cost (negative): %s", openFileCost);
+
+    // Check the size of delete file as well to avoid unbalanced bin-packing
+    Function<FileScanTask, Long> weightFunc = file -> Math.max(
+        file.length() + file.deletes().stream().mapToLong(ContentFile::fileSizeInBytes).sum(),
+        (1 + file.deletes().size()) * openFileCost);
 
     return CloseableIterable.transform(
         CloseableIterable.combine(

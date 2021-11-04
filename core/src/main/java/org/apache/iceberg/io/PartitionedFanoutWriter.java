@@ -39,8 +39,9 @@ public abstract class PartitionedFanoutWriter<T> extends BaseTaskWriter<T> {
   private final Map<PartitionKey, RollingFileWriter> writers = Maps.newHashMap();
 
   protected PartitionedFanoutWriter(PartitionSpec spec, FileFormat format, FileAppenderFactory<T> appenderFactory,
-                          OutputFileFactory fileFactory, FileIO io, long targetFileSize) {
-    super(spec, format, appenderFactory, fileFactory, io, targetFileSize);
+                                    OutputFileFactory fileFactory, FileIO io, long targetFileSize,
+                                    Map<String, String> properties) {
+    super(spec, format, appenderFactory, fileFactory, io, targetFileSize, properties);
   }
 
   /**
@@ -70,33 +71,44 @@ public abstract class PartitionedFanoutWriter<T> extends BaseTaskWriter<T> {
   @Override
   public void close() throws IOException {
     if (!writers.isEmpty()) {
-
-      List<CompletableFuture<Exception>> futures = new ArrayList<>(writers.size());
-
-      for (PartitionKey key : writers.keySet()) {
-
-        CompletableFuture<Exception> closer = CompletableFuture.supplyAsync(() -> {
-          try {
-            writers.get(key).close();
-          } catch (IOException e) {
-            return e;
-          }
-          return null;
-        }, POOL);
-
-        futures.add(closer);
-      }
-
-      try {
-        for (CompletableFuture<Exception> future : futures) {
-          Exception exception = future.get();
-          if (exception != null) {throw (IOException) exception;}
-        }
-      } catch (InterruptedException | ExecutionException e) {
-        throw new IOException(e);
-      }
-
-      writers.clear();
+      closeSync();
     }
+  }
+  private void closeSync() throws IOException {
+    for (PartitionKey key : writers.keySet()) {
+      writers.get(key).close();
+    }
+    writers.clear();
+  }
+
+  private void closeAsync() throws IOException {
+    List<CompletableFuture<Exception>> futures = new ArrayList<>(writers.size());
+
+    for (PartitionKey key : writers.keySet()) {
+
+      CompletableFuture<Exception> closer = CompletableFuture.supplyAsync(() -> {
+        try {
+          writers.get(key).close();
+        } catch (IOException e) {
+          return e;
+        }
+        return null;
+      }, POOL);
+
+      futures.add(closer);
+    }
+
+    try {
+      for (CompletableFuture<Exception> future : futures) {
+        Exception exception = future.get();
+        if (exception != null) {
+          throw (IOException) exception;
+        }
+      }
+    } catch (InterruptedException | ExecutionException e) {
+      throw new IOException(e);
+    }
+
+    writers.clear();
   }
 }

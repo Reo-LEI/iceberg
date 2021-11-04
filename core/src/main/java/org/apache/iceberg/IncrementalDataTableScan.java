@@ -54,10 +54,10 @@ class IncrementalDataTableScan extends DataTableScan {
   }
 
   @Override
-  public TableScan appendsBetween(long newFromSnapshotId, long newToSnapshotId) {
-    validateSnapshotIdsRefinement(newFromSnapshotId, newToSnapshotId);
+  public TableScan appendsBetween(long fromSnapshotId, long toSnapshotId) {
+    validateSnapshotIdsRefinement(fromSnapshotId, toSnapshotId);
     return new IncrementalDataTableScan(tableOps(), table(), schema(),
-        context().fromSnapshotId(newFromSnapshotId).toSnapshotId(newToSnapshotId));
+        context().fromSnapshotId(fromSnapshotId).toSnapshotId(toSnapshotId));
   }
 
   @Override
@@ -75,7 +75,7 @@ class IncrementalDataTableScan extends DataTableScan {
     Set<Long> snapshotIds = Sets.newHashSet(Iterables.transform(snapshots, Snapshot::snapshotId));
     Set<ManifestFile> manifests = FluentIterable
         .from(snapshots)
-        .transformAndConcat(Snapshot::dataManifests)
+        .transformAndConcat(Snapshot::allManifests)
         .filter(manifestFile -> snapshotIds.contains(manifestFile.snapshotId()))
         .toSet();
 
@@ -83,10 +83,6 @@ class IncrementalDataTableScan extends DataTableScan {
         .caseSensitive(isCaseSensitive())
         .select(colStats() ? SCAN_WITH_STATS_COLUMNS : SCAN_COLUMNS)
         .filterData(filter())
-        .filterManifestEntries(
-            manifestEntry ->
-                snapshotIds.contains(manifestEntry.snapshotId()) &&
-                manifestEntry.status() == ManifestEntry.Status.ADDED)
         .specsById(tableOps().current().specsById())
         .ignoreDeleted();
 
@@ -115,13 +111,8 @@ class IncrementalDataTableScan extends DataTableScan {
     List<Snapshot> snapshots = Lists.newArrayList();
     for (Long snapshotId : snapshotIds) {
       Snapshot snapshot = table.snapshot(snapshotId);
-      // for now, incremental scan supports only appends
-      if (snapshot.operation().equals(DataOperations.APPEND)) {
+      if (snapshot.operation().equals(DataOperations.APPEND) || snapshot.operation().equals(DataOperations.OVERWRITE)) {
         snapshots.add(snapshot);
-      } else if (snapshot.operation().equals(DataOperations.OVERWRITE)) {
-        throw new UnsupportedOperationException(
-            String.format("Found %s operation, cannot support incremental data in snapshots (%s, %s]",
-                DataOperations.OVERWRITE, fromSnapshotId, toSnapshotId));
       }
     }
     return snapshots;

@@ -29,7 +29,7 @@ import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.relocated.com.google.common.collect.Iterables;
 import org.apache.iceberg.relocated.com.google.common.collect.Sets;
 import org.apache.iceberg.types.TypeUtil;
-import org.apache.iceberg.util.ParallelIterable;
+import org.apache.iceberg.types.Types.StructType;
 import org.apache.iceberg.util.ThreadPools;
 
 /**
@@ -56,8 +56,9 @@ public class AllDataFilesTable extends BaseMetadataTable {
 
   @Override
   public Schema schema() {
-    Schema schema = new Schema(DataFile.getType(table().spec().partitionType()).fields());
-    if (table().spec().fields().size() < 1) {
+    StructType partitionType = Partitioning.partitionType(table());
+    Schema schema = new Schema(DataFile.getType(partitionType).fields());
+    if (partitionType.fields().size() < 1) {
       // avoid returning an empty struct, which is not always supported. instead, drop the partition field (id 102)
       return TypeUtil.selectNot(schema, Sets.newHashSet(102));
     } else {
@@ -120,19 +121,15 @@ public class AllDataFilesTable extends BaseMetadataTable {
       Expression filter = ignoreResiduals ? Expressions.alwaysTrue() : rowFilter;
       ResidualEvaluator residuals = ResidualEvaluator.unpartitioned(filter);
 
-      // Data tasks produce the table schema, not the projection schema and projection is done by processing engines.
-      // This data task needs to use the table schema, which may not include a partition schema to avoid having an
-      // empty struct in the schema for unpartitioned tables. Some engines, like Spark, can't handle empty structs in
-      // all cases.
       return CloseableIterable.transform(manifests, manifest ->
-          new DataFilesTable.ManifestReadTask(ops.io(), manifest, fileSchema, schemaString, specString, residuals));
+          new DataFilesTable.ManifestReadTask(ops.io(), manifest, schema(), schemaString, specString, residuals));
     }
   }
 
   private static CloseableIterable<ManifestFile> allDataManifestFiles(List<Snapshot> snapshots) {
-    try (CloseableIterable<ManifestFile> iterable = new ParallelIterable<>(
-        Iterables.transform(snapshots, snapshot -> (Iterable<ManifestFile>) () -> snapshot.dataManifests().iterator()),
-        ThreadPools.getWorkerPool())) {
+    try (CloseableIterable<ManifestFile> iterable = CloseableIterable.combine(
+        Iterables.transform(snapshots, snapshot -> CloseableIterable.withNoopClose(snapshot.dataManifests())),
+        ThreadPools.getWorkerPool(), ThreadPools.WORKER_THREAD_POOL_SIZE)) {
       return CloseableIterable.withNoopClose(Sets.newHashSet(iterable));
     } catch (IOException e) {
       throw new RuntimeIOException(e, "Failed to close parallel iterable");

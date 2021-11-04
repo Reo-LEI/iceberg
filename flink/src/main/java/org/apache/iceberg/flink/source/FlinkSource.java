@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ReadableConfig;
@@ -36,8 +37,8 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.encryption.EncryptionManager;
 import org.apache.iceberg.expressions.Expression;
+import org.apache.iceberg.flink.FlinkConfigOptions;
 import org.apache.iceberg.flink.FlinkSchemaUtil;
-import org.apache.iceberg.flink.FlinkTableOptions;
 import org.apache.iceberg.flink.TableLoader;
 import org.apache.iceberg.flink.util.FlinkCompatibilityUtil;
 import org.apache.iceberg.io.FileIO;
@@ -48,11 +49,11 @@ public class FlinkSource {
   }
 
   /**
-   * Initialize a {@link Builder} to read the data from iceberg table. Equivalent to {@link TableScan}.
-   * See more options in {@link ScanContext}.
+   * Initialize a {@link Builder} to read the data from iceberg table. Equivalent to {@link TableScan}. See more options
+   * in {@link ScanContext}.
    * <p>
-   * The Source can be read static data in bounded mode. It can also continuously check the arrival of new data and
-   * read records incrementally.
+   * The Source can be read static data in bounded mode. It can also continuously check the arrival of new data and read
+   * records incrementally.
    * <ul>
    *   <li>Without startSnapshotId: Bounded</li>
    *   <li>With startSnapshotId and with endSnapshotId: Bounded</li>
@@ -76,6 +77,7 @@ public class FlinkSource {
     private TableSchema projectedSchema;
     private ReadableConfig readableConfig = new Configuration();
     private final ScanContext.Builder contextBuilder = ScanContext.builder();
+    private String uidPrefix;
 
     public Builder tableLoader(TableLoader newLoader) {
       this.tableLoader = newLoader;
@@ -167,6 +169,11 @@ public class FlinkSource {
       return this;
     }
 
+    public Builder uidPrefix(String newPrefix) {
+      this.uidPrefix = newPrefix;
+      return this;
+    }
+
     public FlinkInputFormat buildFormat() {
       Preconditions.checkNotNull(tableLoader, "TableLoader should not be null");
 
@@ -215,17 +222,26 @@ public class FlinkSource {
         String monitorFunctionName = String.format("Iceberg table (%s) monitor", table);
         String readerOperatorName = String.format("Iceberg table (%s) reader", table);
 
-        return env.addSource(function, monitorFunctionName)
-            .transform(readerOperatorName, typeInfo, StreamingReaderOperator.factory(format));
+        return env.addSource(function, monitorFunctionName).uid(uidPrefix != null ? uidPrefix + "-monitor" : null)
+            .transform(readerOperatorName, typeInfo, StreamingReaderOperator.factory(format)).uid(uidPrefix != null ?
+                uidPrefix + "-reader" : null);
       }
     }
 
     int inferParallelism(FlinkInputFormat format, ScanContext context) {
       int parallelism = readableConfig.get(ExecutionConfigOptions.TABLE_EXEC_RESOURCE_DEFAULT_PARALLELISM);
-      if (readableConfig.get(FlinkTableOptions.TABLE_EXEC_ICEBERG_INFER_SOURCE_PARALLELISM)) {
-        int maxInferParallelism = readableConfig.get(FlinkTableOptions.TABLE_EXEC_ICEBERG_INFER_SOURCE_PARALLELISM_MAX);
-        Preconditions.checkState(maxInferParallelism >= 1,
-            FlinkTableOptions.TABLE_EXEC_ICEBERG_INFER_SOURCE_PARALLELISM_MAX.key() + " cannot be less than 1");
+      if (readableConfig.get(FlinkConfigOptions.TABLE_EXEC_ICEBERG_INFER_SOURCE_PARALLELISM)) {
+        Integer maxInferParallelism =
+            readableConfig.get(FlinkConfigOptions.TABLE_EXEC_ICEBERG_INFER_SOURCE_PARALLELISM_MAX);
+        if (Objects.isNull(maxInferParallelism)) {
+          maxInferParallelism = parallelism;
+          if (maxInferParallelism < 0) {
+            maxInferParallelism = 1;
+          }
+        }
+        Preconditions.checkState(
+            maxInferParallelism >= 1,
+            FlinkConfigOptions.TABLE_EXEC_ICEBERG_INFER_SOURCE_PARALLELISM_MAX.key() + " cannot be less than 1");
         int splitNum;
         try {
           FlinkInputSplit[] splits = format.createInputSplits(0);
